@@ -243,13 +243,15 @@ const Index = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn'); // Only remove the login status
-    // Do NOT remove 'currentUser' or 'user_hash' as they define the app's single user
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('currentUser');
     navigate('/login');
   };
 
   // Helper to get base color for text class
   const getBaseColor = (colorClass: string) => colorClass.split('-')[0];
+
+  const selectedBudget = data.budgetingList.find(item => item.id === selectedBudgetId);
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -641,15 +643,30 @@ const Index = () => {
               <DialogTitle>{t('editRealization')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              {selectedBudget && (
+                <div className="text-sm text-gray-600 italic">
+                  Allocation: {formatCurrency(selectedBudget.allocation)}
+                </div>
+              )}
               <div>
                 <Label htmlFor="realizationAmount">{t('realizationAmount')}</Label>
-                <Input
-                  id="realizationAmount"
-                  type="number"
-                  value={newRealization}
-                  onChange={(e) => setNewRealization(e.target.value)}
-                  placeholder="e.g., 325000"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="realizationAmount"
+                    type="number"
+                    value={newRealization}
+                    onChange={(e) => setNewRealization(e.target.value)}
+                    placeholder="e.g., 325000"
+                    className="flex-1"
+                  />
+                  <Button 
+                    size="sm" 
+                    onClick={() => selectedBudget && setNewRealization(selectedBudget.allocation.toString())}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Set to 100%
+                  </Button>
+                </div>
               </div>
               <Button onClick={handleEditRealization} className="w-full">{t('updateRealization')}</Button>
             </div>
