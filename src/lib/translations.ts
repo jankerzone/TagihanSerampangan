@@ -65,6 +65,7 @@ export const translations = {
     copyError: "No data found in previous month.",
     areYouSureDeleteCategory: "Are you sure you want to delete the category \"{category}\"?",
     requiredFields: "All fields are required.",
+    colorsUpdated: "Dashboard colors updated!",
   },
   id: {
     appName: "TagihanSerampangan 💰 Manajemen Keuangan",
@@ -132,5 +133,6 @@ export const translations = {
     copyError: "Tidak ada data ditemukan di bulan sebelumnya.",
     areYouSureDeleteCategory: "Apakah Anda yakin ingin menghapus kategori \"{category}\"?",
     requiredFields: "Semua kolom wajib diisi.",
+    colorsUpdated: "Warna dashboard diperbarui!",
   },
 };

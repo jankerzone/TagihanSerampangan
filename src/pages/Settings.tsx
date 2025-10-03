@@ -90,14 +90,15 @@ const Settings = () => {
   };
 
   const colorOptions = [
-    "green-100", "orange-100", "red-100", "blue-100",
-    "green-200", "orange-200", "red-200", "blue-200",
-    "purple-100", "yellow-100", "pink-100", "teal-100",
-    "purple-200", "yellow-200", "pink-200", "teal-200",
+    "green-100", "green-200", "green-300", "green-400", "green-500", "green-600", "green-700", "green-800", "green-900",
+    "orange-100", "orange-200", "orange-300", "orange-400", "orange-500", "orange-600", "orange-700", "orange-800", "orange-900",
+    "red-100", "red-200", "red-300", "red-400", "red-500", "red-600", "red-700", "red-800", "red-900",
+    "blue-100", "blue-200", "blue-300", "blue-400", "blue-500", "blue-600", "blue-700", "blue-800", "blue-900",
+    "purple-100", "purple-200", "purple-300", "purple-400", "purple-500", "purple-600", "purple-700", "purple-800", "purple-900",
+    "yellow-100", "yellow-200", "yellow-300", "yellow-400", "yellow-500", "yellow-600", "yellow-700", "yellow-800", "yellow-900",
+    "pink-100", "pink-200", "pink-300", "pink-400", "pink-500", "pink-600", "pink-700", "pink-800", "pink-900",
+    "teal-100", "teal-200", "teal-300", "teal-400", "teal-500", "teal-600", "teal-700", "teal-800", "teal-900",
   ];
-
-  // Helper to get base color for text class
-  const getBaseColor = (colorClass: string) => colorClass.split('-')[0];
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -232,10 +233,13 @@ const Settings = () => {
                   <Label htmlFor={key}>{key.replace('_', ' ').toUpperCase()}</Label>
                   <Select
                     value={value}
-                    onValueChange={(newValue) => setSettings(prev => ({
-                      ...prev,
-                      colors: { ...prev.colors, [key]: newValue }
-                    }))}
+                    onValueChange={(newValue) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        colors: { ...prev.colors, [key]: newValue }
+                      }));
+                      showSuccess(t('colorsUpdated')); // Show success toast on color change
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue />

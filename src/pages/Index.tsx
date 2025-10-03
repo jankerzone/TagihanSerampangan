@@ -22,7 +22,8 @@ import {
   monthNames,
   monthNumbers,
   copyFromPreviousMonth,
-  t
+  t,
+  getPrefixedKey
 } from "@/lib/utils";
 import { Link, useNavigate } from 'react-router-dom';
 import { showSuccess, showError } from "@/utils/toast";
@@ -54,6 +55,33 @@ interface FinancialData {
   budgetingList: BudgetItem[];
 }
 
+// Helper to derive specific shades for panel styling based on a base color (e.g., "green-100")
+const getDerivedColorClasses = (selectedColor: string) => {
+  const parts = selectedColor.split('-'); // e.g., ["green", "100"]
+  const colorName = parts[0];
+  const shade = parseInt(parts[1]);
+
+  // Logic to derive shades based on user's request:
+  // If base is COLOR-X00:
+  //   Background: COLOR-(X+1)00 (e.g., 100 -> 200, 200 -> 300)
+  //   Text: COLOR-800 (fixed dark text for light backgrounds)
+  //   Border: COLOR-(X+2)00 (e.g., 100 -> 300, 200 -> 400)
+
+  let bgColorShade = shade + 100;
+  let textColorShade = 800; 
+  let borderColorShade = shade + 200;
+
+  // Ensure shades don't exceed 900
+  if (bgColorShade > 900) bgColorShade = 900;
+  if (borderColorShade > 900) borderColorShade = 900;
+
+  return {
+    bgColor: `bg-${colorName}-${bgColorShade}`,
+    textColor: `text-${colorName}-${textColorShade}`,
+    borderColor: `border-${colorName}-${borderColorShade}`
+  };
+};
+
 const Index = () => {
   const navigate = useNavigate();
   // State
@@ -84,6 +112,21 @@ const Index = () => {
   useEffect(() => {
     saveGlobalSettings(globalSettings);
   }, [globalSettings]);
+
+  // Effect to listen for storage changes (for live color updates from settings page)
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      // Only update if the global settings key for the current user has changed
+      if (event.key === getPrefixedKey('tagihan_global_settings')) {
+        setGlobalSettings(loadGlobalSettings());
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []); // Empty dependency array means this runs once on mount
 
   // Calculations
   const totalIncome = data.incomeSources.reduce((sum, item) => sum + item.amount, 0);
@@ -244,14 +287,17 @@ const Index = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('currentUser');
+    localStorage.removeItem('currentUser'); // Keep this for now, as the previous fix was to remove it.
     navigate('/login');
   };
 
-  // Helper to get base color for text class
-  const getBaseColor = (colorClass: string) => colorClass.split('-')[0];
-
   const selectedBudget = data.budgetingList.find(item => item.id === selectedBudgetId);
+
+  // Derived color classes for each panel
+  const incomeColors = getDerivedColorClasses(globalSettings.colors.income || "green-100");
+  const budgetedColors = getDerivedColorClasses(globalSettings.colors.budgeted_expenses || "orange-100");
+  const spendingColors = getDerivedColorClasses(globalSettings.colors.spending || "red-100");
+  const savingsColors = getDerivedColorClasses(globalSettings.colors.savings || "blue-100");
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -303,7 +349,7 @@ const Index = () => {
         </div>
 
         {/* Monthly Report */}
-        <Card className="mb-6 bg-green-50 border-green-200">
+        <Card className="mb-6 bg-green-50 border-green-200"> {/* This outer card's color is hardcoded, not part of the dynamic color settings */}
           <CardHeader>
             <CardTitle className="text-green-800 flex items-center gap-2">
               <span>{t('monthlyReport')}</span>
@@ -311,31 +357,31 @@ const Index = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className={`bg-${globalSettings.colors.income} border-${getBaseColor(globalSettings.colors.income)}-300`}>
+              <Card className={`${incomeColors.bgColor} ${incomeColors.borderColor} border`}>
                 <CardContent className="p-4">
-                  <div className={`text-sm font-medium text-${getBaseColor(globalSettings.colors.income)}-800`}>{t('totalIncome')}</div>
-                  <div className={`text-xl font-bold text-${getBaseColor(globalSettings.colors.income)}-900`}>{formatCurrency(totalIncome)}</div>
+                  <div className={`text-sm font-medium ${incomeColors.textColor}`}>{t('totalIncome')}</div>
+                  <div className={`text-xl font-bold ${incomeColors.textColor}`}>{formatCurrency(totalIncome)}</div>
                 </CardContent>
               </Card>
               
-              <Card className={`bg-${globalSettings.colors.budgeted_expenses} border-${getBaseColor(globalSettings.colors.budgeted_expenses)}-300`}>
+              <Card className={`${budgetedColors.bgColor} ${budgetedColors.borderColor} border`}>
                 <CardContent className="p-4">
-                  <div className={`text-sm font-medium text-${getBaseColor(globalSettings.colors.budgeted_expenses)}-800`}>{t('budgetedExpenses')}</div>
-                  <div className={`text-xl font-bold text-${getBaseColor(globalSettings.colors.budgeted_expenses)}-900`}>{formatCurrency(totalBudgetedExpenses)}</div>
+                  <div className={`text-sm font-medium ${budgetedColors.textColor}`}>{t('budgetedExpenses')}</div>
+                  <div className={`text-xl font-bold ${budgetedColors.textColor}`}>{formatCurrency(totalBudgetedExpenses)}</div>
                 </CardContent>
               </Card>
               
-              <Card className={`bg-${globalSettings.colors.spending} border-${getBaseColor(globalSettings.colors.spending)}-300`}>
+              <Card className={`${spendingColors.bgColor} ${spendingColors.borderColor} border`}>
                 <CardContent className="p-4">
-                  <div className={`text-sm font-medium text-${getBaseColor(globalSettings.colors.spending)}-800`}>{t('spending', { month: globalSettings.currentMonth })}</div>
-                  <div className={`text-xl font-bold text-${getBaseColor(globalSettings.colors.spending)}-900`}>{formatCurrency(totalSpending)}</div>
+                  <div className={`text-sm font-medium ${spendingColors.textColor}`}>{t('spending', { month: globalSettings.currentMonth })}</div>
+                  <div className={`text-xl font-bold ${spendingColors.textColor}`}>{formatCurrency(totalSpending)}</div>
                 </CardContent>
               </Card>
               
-              <Card className={`bg-${globalSettings.colors.savings} border-${getBaseColor(globalSettings.colors.savings)}-300`}>
+              <Card className={`${savingsColors.bgColor} ${savingsColors.borderColor} border`}>
                 <CardContent className="p-4">
-                  <div className={`text-sm font-medium text-${getBaseColor(globalSettings.colors.savings)}-800`}>{t('savings', { month: globalSettings.currentMonth })}</div>
-                  <div className={`text-xl font-bold text-${getBaseColor(globalSettings.colors.savings)}-900`}>{formatCurrency(savings)}</div>
+                  <div className={`text-sm font-medium ${savingsColors.textColor}`}>{t('savings', { month: globalSettings.currentMonth })}</div>
+                  <div className={`text-xl font-bold ${savingsColors.textColor}`}>{formatCurrency(savings)}</div>
                 </CardContent>
               </Card>
             </div>
