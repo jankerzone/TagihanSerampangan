@@ -10,8 +10,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Edit3, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, Settings } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
+import { 
+  getMonthKey, 
+  loadGlobalSettings, 
+  saveGlobalSettings, 
+  loadMonthData, 
+  saveMonthData, 
+  formatCurrency,
+  monthNames,
+  monthNumbers
+} from "@/lib/utils";
+import { Link } from 'react-router-dom';
 
 // Types
 interface IncomeSource {
@@ -35,41 +46,19 @@ interface BudgetItem {
 }
 
 interface FinancialData {
-  currentYear: number;
-  currentMonth: string;
   incomeSources: IncomeSource[];
   savingList: Saving[];
   budgetingList: BudgetItem[];
 }
 
-// Default data structure
-const defaultData: FinancialData = {
-  currentYear: new Date().getFullYear(),
-  currentMonth: new Date().toLocaleString('default', { month: 'long' }),
-  incomeSources: [
-    { id: '1', name: 'Gaji', amount: 13923161 }
-  ],
-  savingList: [
-    { id: '1', name: 'Dana Darurat', amount: 2000000 }
-  ],
-  budgetingList: [
-    { id: '1', name: 'Zakat Wajib', allocation: 325000, realization: 325000, category: 'Zakat' },
-    { id: '2', name: 'Pajak Tahunan', allocation: 500000, realization: 0, category: 'Pajak' },
-    { id: '3', name: 'Bantuan Keluarga', allocation: 1000000, realization: 500000, category: 'Keluarga' },
-    { id: '4', name: 'Service AC', allocation: 300000, realization: 0, category: 'Rumah' }
-  ]
-};
-
-const months = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
-
-const categories = ["Zakat", "Pajak", "Keluarga", "Rumah", "Lainnya"];
-
 const Index = () => {
   // State
-  const [data, setData] = useState<FinancialData>(defaultData);
+  const [globalSettings, setGlobalSettings] = useState(loadGlobalSettings());
+  const [data, setData] = useState<FinancialData>({
+    incomeSources: [],
+    savingList: [],
+    budgetingList: []
+  });
   const [isAddIncomeOpen, setIsAddIncomeOpen] = useState(false);
   const [isAddSavingOpen, setIsAddSavingOpen] = useState(false);
   const [isAddBudgetOpen, setIsAddBudgetOpen] = useState(false);
@@ -77,25 +66,20 @@ const Index = () => {
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [newIncome, setNewIncome] = useState({ name: '', amount: '' });
   const [newSaving, setNewSaving] = useState({ name: '', amount: '' });
-  const [newBudget, setNewBudget] = useState({ name: '', allocation: '', category: categories[0] });
+  const [newBudget, setNewBudget] = useState({ name: '', allocation: '', category: globalSettings.categories[0] || "Lainnya" });
   const [newRealization, setNewRealization] = useState('');
 
-  // Load data from localStorage on mount
+  // Load data when month/year changes
   useEffect(() => {
-    const savedData = localStorage.getItem('tagihanSerampanganData');
-    if (savedData) {
-      try {
-        setData(JSON.parse(savedData));
-      } catch (e) {
-        console.error('Failed to parse saved data', e);
-      }
-    }
-  }, []);
+    const currentKey = getMonthKey(globalSettings.currentYear, globalSettings.currentMonth);
+    const monthData = loadMonthData(currentKey);
+    setData(monthData);
+  }, [globalSettings.currentYear, globalSettings.currentMonth]);
 
-  // Save data to localStorage whenever it changes
+  // Save global settings when they change
   useEffect(() => {
-    localStorage.setItem('tagihanSerampanganData', JSON.stringify(data));
-  }, [data]);
+    saveGlobalSettings(globalSettings);
+  }, [globalSettings]);
 
   // Calculations
   const totalIncome = data.incomeSources.reduce((sum, item) => sum + item.amount, 0);
@@ -112,10 +96,14 @@ const Index = () => {
         amount: parseInt(newIncome.amount)
       };
       
-      setData(prev => ({
-        ...prev,
-        incomeSources: [...prev.incomeSources, newIncomeItem]
-      }));
+      const currentKey = getMonthKey(globalSettings.currentYear, globalSettings.currentMonth);
+      const updatedData = {
+        ...data,
+        incomeSources: [...data.incomeSources, newIncomeItem]
+      };
+      
+      saveMonthData(currentKey, updatedData);
+      setData(updatedData);
       
       setNewIncome({ name: '', amount: '' });
       setIsAddIncomeOpen(false);
@@ -130,10 +118,14 @@ const Index = () => {
         amount: parseInt(newSaving.amount)
       };
       
-      setData(prev => ({
-        ...prev,
-        savingList: [...prev.savingList, newSavingItem]
-      }));
+      const currentKey = getMonthKey(globalSettings.currentYear, globalSettings.currentMonth);
+      const updatedData = {
+        ...data,
+        savingList: [...data.savingList, newSavingItem]
+      };
+      
+      saveMonthData(currentKey, updatedData);
+      setData(updatedData);
       
       setNewSaving({ name: '', amount: '' });
       setIsAddSavingOpen(false);
@@ -150,26 +142,34 @@ const Index = () => {
         category: newBudget.category
       };
       
-      setData(prev => ({
-        ...prev,
-        budgetingList: [...prev.budgetingList, newBudgetItem]
-      }));
+      const currentKey = getMonthKey(globalSettings.currentYear, globalSettings.currentMonth);
+      const updatedData = {
+        ...data,
+        budgetingList: [...data.budgetingList, newBudgetItem]
+      };
       
-      setNewBudget({ name: '', allocation: '', category: categories[0] });
+      saveMonthData(currentKey, updatedData);
+      setData(updatedData);
+      
+      setNewBudget({ name: '', allocation: '', category: globalSettings.categories[0] || "Lainnya" });
       setIsAddBudgetOpen(false);
     }
   };
 
   const handleEditRealization = () => {
     if (selectedBudgetId && newRealization) {
-      setData(prev => ({
-        ...prev,
-        budgetingList: prev.budgetingList.map(item => 
+      const currentKey = getMonthKey(globalSettings.currentYear, globalSettings.currentMonth);
+      const updatedData = {
+        ...data,
+        budgetingList: data.budgetingList.map(item => 
           item.id === selectedBudgetId 
             ? { ...item, realization: parseInt(newRealization) } 
             : item
         )
-      }));
+      };
+      
+      saveMonthData(currentKey, updatedData);
+      setData(updatedData);
       
       setNewRealization('');
       setSelectedBudgetId(null);
@@ -178,28 +178,35 @@ const Index = () => {
   };
 
   const handleDeleteItem = (type: 'income' | 'saving' | 'budget', id: string) => {
-    setData(prev => {
-      switch (type) {
-        case 'income':
-          return { ...prev, incomeSources: prev.incomeSources.filter(item => item.id !== id) };
-        case 'saving':
-          return { ...prev, savingList: prev.savingList.filter(item => item.id !== id) };
-        case 'budget':
-          return { ...prev, budgetingList: prev.budgetingList.filter(item => item.id !== id) };
-        default:
-          return prev;
-      }
-    });
+    const currentKey = getMonthKey(globalSettings.currentYear, globalSettings.currentMonth);
+    let updatedData;
+    
+    switch (type) {
+      case 'income':
+        updatedData = { ...data, incomeSources: data.incomeSources.filter(item => item.id !== id) };
+        break;
+      case 'saving':
+        updatedData = { ...data, savingList: data.savingList.filter(item => item.id !== id) };
+        break;
+      case 'budget':
+        updatedData = { ...data, budgetingList: data.budgetingList.filter(item => item.id !== id) };
+        break;
+      default:
+        return;
+    }
+    
+    saveMonthData(currentKey, updatedData);
+    setData(updatedData);
   };
 
   const handleMonthChange = (month: string) => {
-    setData(prev => ({ ...prev, currentMonth: month }));
+    setGlobalSettings(prev => ({ ...prev, currentMonth: month }));
   };
 
   const handleYearChange = (year: string) => {
     const yearNum = parseInt(year);
     if (!isNaN(yearNum)) {
-      setData(prev => ({ ...prev, currentYear: yearNum }));
+      setGlobalSettings(prev => ({ ...prev, currentYear: yearNum }));
     }
   };
 
@@ -207,16 +214,6 @@ const Index = () => {
     setSelectedBudgetId(id);
     setNewRealization(currentRealization.toString());
     setIsEditRealizationOpen(true);
-  };
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
   };
 
   return (
@@ -229,30 +226,39 @@ const Index = () => {
             <Badge variant="secondary" className="text-sm">Money Management</Badge>
           </div>
           
-          <div className="flex items-center gap-2 mt-4 md:mt-0">
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium text-gray-700">Year:</span>
-              <Input
-                type="number"
-                value={data.currentYear}
-                onChange={(e) => handleYearChange(e.target.value)}
-                className="w-20 h-8 text-sm"
-              />
+          <div className="flex items-center gap-4 mt-4 md:mt-0">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-gray-700">Year:</span>
+                <Input
+                  type="number"
+                  value={globalSettings.currentYear}
+                  onChange={(e) => handleYearChange(e.target.value)}
+                  className="w-20 h-8 text-sm"
+                />
+              </div>
+              
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-gray-700">Month:</span>
+                <Select value={globalSettings.currentMonth} onValueChange={handleMonthChange}>
+                  <SelectTrigger className="w-32 h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {monthNames.map(month => (
+                      <SelectItem key={month} value={month}>{month}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium text-gray-700">Month:</span>
-              <Select value={data.currentMonth} onValueChange={handleMonthChange}>
-                <SelectTrigger className="w-32 h-8 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {months.map(month => (
-                    <SelectItem key={month} value={month}>{month}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Link to="/settings">
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-1" />
+                Settings
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -265,30 +271,30 @@ const Index = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="bg-green-100 border-green-300">
+              <Card className={`bg-${globalSettings.colors.income} border-green-300`}>
                 <CardContent className="p-4">
                   <div className="text-sm font-medium text-green-800">Total Income</div>
                   <div className="text-xl font-bold text-green-900">{formatCurrency(totalIncome)}</div>
                 </CardContent>
               </Card>
               
-              <Card className="bg-green-100 border-green-300">
+              <Card className={`bg-${globalSettings.colors.budgeted_expenses} border-green-300`}>
                 <CardContent className="p-4">
                   <div className="text-sm font-medium text-green-800">Budgeted Expenses</div>
                   <div className="text-xl font-bold text-green-900">{formatCurrency(totalBudgetedExpenses)}</div>
                 </CardContent>
               </Card>
               
-              <Card className="bg-green-100 border-green-300">
+              <Card className={`bg-${globalSettings.colors.spending} border-green-300`}>
                 <CardContent className="p-4">
-                  <div className="text-sm font-medium text-green-800">{data.currentMonth} Spending</div>
+                  <div className="text-sm font-medium text-green-800">{globalSettings.currentMonth} Spending</div>
                   <div className="text-xl font-bold text-green-900">{formatCurrency(totalSpending)}</div>
                 </CardContent>
               </Card>
               
-              <Card className="bg-green-100 border-green-300">
+              <Card className={`bg-${globalSettings.colors.savings} border-green-300`}>
                 <CardContent className="p-4">
-                  <div className="text-sm font-medium text-green-800">{data.currentMonth} Savings</div>
+                  <div className="text-sm font-medium text-green-800">{globalSettings.currentMonth} Savings</div>
                   <div className="text-xl font-bold text-green-900">{formatCurrency(savings)}</div>
                 </CardContent>
               </Card>
@@ -492,7 +498,7 @@ const Index = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {categories.map(category => (
+                            {globalSettings.categories.map(category => (
                               <SelectItem key={category} value={category}>{category}</SelectItem>
                             ))}
                           </SelectContent>
