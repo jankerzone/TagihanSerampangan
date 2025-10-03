@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Edit3, Trash2, Settings } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, Settings, LogOut } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { 
   getMonthKey, 
@@ -20,9 +20,12 @@ import {
   saveMonthData, 
   formatCurrency,
   monthNames,
-  monthNumbers
+  monthNumbers,
+  copyFromPreviousMonth,
+  t
 } from "@/lib/utils";
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { showSuccess, showError } from "@/utils/toast";
 
 // Types
 interface IncomeSource {
@@ -52,6 +55,7 @@ interface FinancialData {
 }
 
 const Index = () => {
+  const navigate = useNavigate();
   // State
   const [globalSettings, setGlobalSettings] = useState(loadGlobalSettings());
   const [data, setData] = useState<FinancialData>({
@@ -69,12 +73,12 @@ const Index = () => {
   const [newBudget, setNewBudget] = useState({ name: '', allocation: '', category: globalSettings.categories[0] || "Lainnya" });
   const [newRealization, setNewRealization] = useState('');
 
-  // Load data when month/year changes
+  // Load data when month/year or global settings (e.g., language) changes
   useEffect(() => {
     const currentKey = getMonthKey(globalSettings.currentYear, globalSettings.currentMonth);
     const monthData = loadMonthData(currentKey);
     setData(monthData);
-  }, [globalSettings.currentYear, globalSettings.currentMonth]);
+  }, [globalSettings.currentYear, globalSettings.currentMonth, globalSettings.lang]); // Re-render on lang change
 
   // Save global settings when they change
   useEffect(() => {
@@ -107,6 +111,8 @@ const Index = () => {
       
       setNewIncome({ name: '', amount: '' });
       setIsAddIncomeOpen(false);
+    } else {
+      showError(t('requiredFields'));
     }
   };
 
@@ -129,6 +135,8 @@ const Index = () => {
       
       setNewSaving({ name: '', amount: '' });
       setIsAddSavingOpen(false);
+    } else {
+      showError(t('requiredFields'));
     }
   };
 
@@ -153,6 +161,8 @@ const Index = () => {
       
       setNewBudget({ name: '', allocation: '', category: globalSettings.categories[0] || "Lainnya" });
       setIsAddBudgetOpen(false);
+    } else {
+      showError(t('requiredFields'));
     }
   };
 
@@ -174,6 +184,8 @@ const Index = () => {
       setNewRealization('');
       setSelectedBudgetId(null);
       setIsEditRealizationOpen(false);
+    } else {
+      showError(t('requiredFields'));
     }
   };
 
@@ -216,20 +228,42 @@ const Index = () => {
     setIsEditRealizationOpen(true);
   };
 
+  const handleCopyFromPreviousMonth = () => {
+    const currentKey = getMonthKey(globalSettings.currentYear, globalSettings.currentMonth);
+    const success = copyFromPreviousMonth(currentKey);
+    
+    if (success) {
+      showSuccess(t('copySuccess'));
+      // Reload data for the current month after copying
+      const monthData = loadMonthData(currentKey);
+      setData(monthData);
+    } else {
+      showError(t('copyError'));
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('currentUser');
+    navigate('/login');
+  };
+
+  // Helper to get base color for text class
+  const getBaseColor = (colorClass: string) => colorClass.split('-')[0];
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">TagihanSerampangan 💰</h1>
-            <Badge variant="secondary" className="text-sm">Money Management</Badge>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t('appName')}</h1>
           </div>
           
           <div className="flex items-center gap-4 mt-4 md:mt-0">
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-gray-700">Year:</span>
+                <span className="text-sm font-medium text-gray-700">{t('year')}:</span>
                 <Input
                   type="number"
                   value={globalSettings.currentYear}
@@ -239,7 +273,7 @@ const Index = () => {
               </div>
               
               <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-gray-700">Month:</span>
+                <span className="text-sm font-medium text-gray-700">{t('month')}:</span>
                 <Select value={globalSettings.currentMonth} onValueChange={handleMonthChange}>
                   <SelectTrigger className="w-32 h-8 text-sm">
                     <SelectValue />
@@ -256,9 +290,13 @@ const Index = () => {
             <Link to="/settings">
               <Button variant="outline" size="sm">
                 <Settings className="h-4 w-4 mr-1" />
-                Settings
+                {t('settings')}
               </Button>
             </Link>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-1" />
+              {t('logout')}
+            </Button>
           </div>
         </div>
 
@@ -266,38 +304,55 @@ const Index = () => {
         <Card className="mb-6 bg-green-50 border-green-200">
           <CardHeader>
             <CardTitle className="text-green-800 flex items-center gap-2">
-              <span>Monthly Report 📊</span>
+              <span>{t('monthlyReport')}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className={`bg-${globalSettings.colors.income} border-green-300`}>
+              <Card className={`bg-${globalSettings.colors.income} border-${getBaseColor(globalSettings.colors.income)}-300`}>
                 <CardContent className="p-4">
-                  <div className="text-sm font-medium text-green-800">Total Income</div>
-                  <div className="text-xl font-bold text-green-900">{formatCurrency(totalIncome)}</div>
+                  <div className={`text-sm font-medium text-${getBaseColor(globalSettings.colors.income)}-800`}>{t('totalIncome')}</div>
+                  <div className={`text-xl font-bold text-${getBaseColor(globalSettings.colors.income)}-900`}>{formatCurrency(totalIncome)}</div>
                 </CardContent>
               </Card>
               
-              <Card className={`bg-${globalSettings.colors.budgeted_expenses} border-green-300`}>
+              <Card className={`bg-${globalSettings.colors.budgeted_expenses} border-${getBaseColor(globalSettings.colors.budgeted_expenses)}-300`}>
                 <CardContent className="p-4">
-                  <div className="text-sm font-medium text-green-800">Budgeted Expenses</div>
-                  <div className="text-xl font-bold text-green-900">{formatCurrency(totalBudgetedExpenses)}</div>
+                  <div className={`text-sm font-medium text-${getBaseColor(globalSettings.colors.budgeted_expenses)}-800`}>{t('budgetedExpenses')}</div>
+                  <div className={`text-xl font-bold text-${getBaseColor(globalSettings.colors.budgeted_expenses)}-900`}>{formatCurrency(totalBudgetedExpenses)}</div>
                 </CardContent>
               </Card>
               
-              <Card className={`bg-${globalSettings.colors.spending} border-green-300`}>
+              <Card className={`bg-${globalSettings.colors.spending} border-${getBaseColor(globalSettings.colors.spending)}-300`}>
                 <CardContent className="p-4">
-                  <div className="text-sm font-medium text-green-800">{globalSettings.currentMonth} Spending</div>
-                  <div className="text-xl font-bold text-green-900">{formatCurrency(totalSpending)}</div>
+                  <div className={`text-sm font-medium text-${getBaseColor(globalSettings.colors.spending)}-800`}>{t('spending', { month: globalSettings.currentMonth })}</div>
+                  <div className={`text-xl font-bold text-${getBaseColor(globalSettings.colors.spending)}-900`}>{formatCurrency(totalSpending)}</div>
                 </CardContent>
               </Card>
               
-              <Card className={`bg-${globalSettings.colors.savings} border-green-300`}>
+              <Card className={`bg-${globalSettings.colors.savings} border-${getBaseColor(globalSettings.colors.savings)}-300`}>
                 <CardContent className="p-4">
-                  <div className="text-sm font-medium text-green-800">{globalSettings.currentMonth} Savings</div>
-                  <div className="text-xl font-bold text-green-900">{formatCurrency(savings)}</div>
+                  <div className={`text-sm font-medium text-${getBaseColor(globalSettings.colors.savings)}-800`}>{t('savings', { month: globalSettings.currentMonth })}</div>
+                  <div className={`text-xl font-bold text-${getBaseColor(globalSettings.colors.savings)}-900`}>{formatCurrency(savings)}</div>
                 </CardContent>
               </Card>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Data Management - Copy from Previous Month */}
+        <Card className="mb-6 border-blue-200 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="text-blue-800">{t('dataManagement')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                {t('copyPrevMonthDesc')}
+              </p>
+              <Button onClick={handleCopyFromPreviousMonth} className="bg-blue-600 hover:bg-blue-700 text-white">
+                {t('copyPrevMonthButton')}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -309,21 +364,21 @@ const Index = () => {
             {/* Income Sources */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Income Sources</CardTitle>
+                <CardTitle>{t('incomeSources')}</CardTitle>
                 <Dialog open={isAddIncomeOpen} onOpenChange={setIsAddIncomeOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" variant="outline">
                       <PlusCircle className="h-4 w-4 mr-1" />
-                      Add
+                      {t('add')}
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Add Income Source</DialogTitle>
+                      <DialogTitle>{t('addIncomeSource')}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="incomeName">Name</Label>
+                        <Label htmlFor="incomeName">{t('name')}</Label>
                         <Input
                           id="incomeName"
                           value={newIncome.name}
@@ -332,7 +387,7 @@ const Index = () => {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="incomeAmount">Amount (Rp)</Label>
+                        <Label htmlFor="incomeAmount">{t('amount')} (Rp)</Label>
                         <Input
                           id="incomeAmount"
                           type="number"
@@ -341,21 +396,21 @@ const Index = () => {
                           placeholder="e.g., 10000000"
                         />
                       </div>
-                      <Button onClick={handleAddIncome} className="w-full">Add Income</Button>
+                      <Button onClick={handleAddIncome} className="w-full">{t('addIncomeSource')}</Button>
                     </div>
                   </DialogContent>
                 </Dialog>
               </CardHeader>
               <CardContent>
                 {data.incomeSources.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No income sources yet</p>
+                  <p className="text-gray-500 text-center py-4">{t('noIncomeSources')}</p>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead className="w-16">Actions</TableHead>
+                        <TableHead>{t('name')}</TableHead>
+                        <TableHead>{t('amount')}</TableHead>
+                        <TableHead className="w-16">{t('actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -383,21 +438,21 @@ const Index = () => {
             {/* Savings */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Savings</CardTitle>
+                <CardTitle>{t('savingsTitle')}</CardTitle>
                 <Dialog open={isAddSavingOpen} onOpenChange={setIsAddSavingOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" variant="outline">
                       <PlusCircle className="h-4 w-4 mr-1" />
-                      Add
+                      {t('add')}
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Add Saving</DialogTitle>
+                      <DialogTitle>{t('addSaving')}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="savingName">Name</Label>
+                        <Label htmlFor="savingName">{t('name')}</Label>
                         <Input
                           id="savingName"
                           value={newSaving.name}
@@ -406,7 +461,7 @@ const Index = () => {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="savingAmount">Amount (Rp)</Label>
+                        <Label htmlFor="savingAmount">{t('amount')} (Rp)</Label>
                         <Input
                           id="savingAmount"
                           type="number"
@@ -415,21 +470,21 @@ const Index = () => {
                           placeholder="e.g., 2000000"
                         />
                       </div>
-                      <Button onClick={handleAddSaving} className="w-full">Add Saving</Button>
+                      <Button onClick={handleAddSaving} className="w-full">{t('addSaving')}</Button>
                     </div>
                   </DialogContent>
                 </Dialog>
               </CardHeader>
               <CardContent>
                 {data.savingList.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No savings yet</p>
+                  <p className="text-gray-500 text-center py-4">{t('noSavings')}</p>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead className="w-16">Actions</TableHead>
+                        <TableHead>{t('name')}</TableHead>
+                        <TableHead>{t('amount')}</TableHead>
+                        <TableHead className="w-16">{t('actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -459,21 +514,21 @@ const Index = () => {
           <div className="lg:col-span-2">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Expenses List</CardTitle>
+                <CardTitle>{t('expensesList')}</CardTitle>
                 <Dialog open={isAddBudgetOpen} onOpenChange={setIsAddBudgetOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" variant="outline">
                       <PlusCircle className="h-4 w-4 mr-1" />
-                      Add
+                      {t('add')}
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Add Budget Item</DialogTitle>
+                      <DialogTitle>{t('addBudgetItem')}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="budgetName">Name</Label>
+                        <Label htmlFor="budgetName">{t('name')}</Label>
                         <Input
                           id="budgetName"
                           value={newBudget.name}
@@ -482,7 +537,7 @@ const Index = () => {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="budgetAllocation">Allocation (Rp)</Label>
+                        <Label htmlFor="budgetAllocation">{t('allocation')} (Rp)</Label>
                         <Input
                           id="budgetAllocation"
                           type="number"
@@ -492,7 +547,7 @@ const Index = () => {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="budgetCategory">Category</Label>
+                        <Label htmlFor="budgetCategory">{t('category')}</Label>
                         <Select value={newBudget.category} onValueChange={(value) => setNewBudget({...newBudget, category: value})}>
                           <SelectTrigger>
                             <SelectValue />
@@ -504,25 +559,25 @@ const Index = () => {
                           </SelectContent>
                         </Select>
                       </div>
-                      <Button onClick={handleAddBudget} className="w-full">Add Budget Item</Button>
+                      <Button onClick={handleAddBudget} className="w-full">{t('addBudgetItem')}</Button>
                     </div>
                   </DialogContent>
                 </Dialog>
               </CardHeader>
               <CardContent>
                 {data.budgetingList.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No expenses yet</p>
+                  <p className="text-gray-500 text-center py-4">{t('noExpenses')}</p>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead className="text-right">Allocation 💰</TableHead>
-                        <TableHead className="text-right">Realization 💵</TableHead>
-                        <TableHead>Budget Usage</TableHead>
-                        <TableHead className="text-right">% Usage</TableHead>
-                        <TableHead className="w-24">Actions</TableHead>
+                        <TableHead>{t('name')}</TableHead>
+                        <TableHead>{t('category')}</TableHead>
+                        <TableHead className="text-right">{t('allocation')}</TableHead>
+                        <TableHead className="text-right">{t('realization')}</TableHead>
+                        <TableHead>{t('budgetUsage')}</TableHead>
+                        <TableHead className="text-right">{t('usagePercent')}</TableHead>
+                        <TableHead className="w-24">{t('actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -583,11 +638,11 @@ const Index = () => {
         <Dialog open={isEditRealizationOpen} onOpenChange={setIsEditRealizationOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit Realization</DialogTitle>
+              <DialogTitle>{t('editRealization')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="realizationAmount">Realization Amount (Rp)</Label>
+                <Label htmlFor="realizationAmount">{t('realizationAmount')}</Label>
                 <Input
                   id="realizationAmount"
                   type="number"
@@ -596,7 +651,7 @@ const Index = () => {
                   placeholder="e.g., 325000"
                 />
               </div>
-              <Button onClick={handleEditRealization} className="w-full">Update Realization</Button>
+              <Button onClick={handleEditRealization} className="w-full">{t('updateRealization')}</Button>
             </div>
           </DialogContent>
         </Dialog>

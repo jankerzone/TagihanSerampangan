@@ -7,18 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Plus, Trash2, Edit, Check, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   loadGlobalSettings, 
   saveGlobalSettings, 
-  copyFromPreviousMonth, 
   getMonthKey,
   monthNames,
-  monthNumbers
+  monthNumbers,
+  t
 } from "@/lib/utils";
 import { showSuccess, showError } from "@/utils/toast";
 
 const Settings = () => {
+  const navigate = useNavigate();
   const [settings, setSettings] = useState(loadGlobalSettings());
   const [newCategory, setNewCategory] = useState('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
@@ -31,7 +32,7 @@ const Settings = () => {
 
   const handleSaveYearMonth = () => {
     saveGlobalSettings(settings);
-    showSuccess('Year and month settings saved!');
+    showSuccess(t('saveYearMonth'));
   };
 
   const handleAddCategory = () => {
@@ -41,7 +42,9 @@ const Settings = () => {
         categories: [...prev.categories, newCategory.trim()]
       }));
       setNewCategory('');
-      showSuccess('Category added!');
+      showSuccess(t('categoryAdded'));
+    } else if (!newCategory.trim()) {
+      showError(t('requiredFields'));
     }
   };
 
@@ -60,7 +63,9 @@ const Settings = () => {
       }));
       setEditingCategory(null);
       setEditCategoryValue('');
-      showSuccess('Category updated!');
+      showSuccess(t('categoryUpdated'));
+    } else if (!editCategoryValue.trim()) {
+      showError(t('requiredFields'));
     }
   };
 
@@ -70,34 +75,29 @@ const Settings = () => {
   };
 
   const handleDeleteCategory = (category: string) => {
-    if (window.confirm(`Are you sure you want to delete the category "${category}"?`)) {
+    if (window.confirm(t('areYouSureDeleteCategory', { category }))) {
       setSettings(prev => ({
         ...prev,
         categories: prev.categories.filter(cat => cat !== category)
       }));
-      showSuccess('Category deleted!');
+      showSuccess(t('categoryDeleted'));
     }
   };
 
-  const handleCopyFromPreviousMonth = () => {
-    const currentKey = getMonthKey(settings.currentYear, settings.currentMonth);
-    const success = copyFromPreviousMonth(currentKey);
-    
-    if (success) {
-      showSuccess('Data copied from previous month successfully!');
-    } else {
-      showError('No data found in previous month.');
-    }
+  const handleLanguageChange = (lang: string) => {
+    setSettings(prev => ({ ...prev, lang }));
+    // No need to redirect, useEffect will save and dashboard will re-render
   };
 
   const colorOptions = [
-    "green-100", "green-200", "green-300",
-    "blue-100", "blue-200", "blue-300",
-    "red-100", "red-200", "red-300",
-    "orange-100", "orange-200", "orange-300",
-    "purple-100", "purple-200", "purple-300",
-    "yellow-100", "yellow-200", "yellow-300"
+    "green-100", "orange-100", "red-100", "blue-100",
+    "green-200", "orange-200", "red-200", "blue-200",
+    "purple-100", "yellow-100", "pink-100", "teal-100",
+    "purple-200", "yellow-200", "pink-200", "teal-200",
   ];
+
+  // Helper to get base color for text class
+  const getBaseColor = (colorClass: string) => colorClass.split('-')[0];
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -108,22 +108,22 @@ const Settings = () => {
             <Link to="/">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-1" />
-                Back to Dashboard
+                {t('backToDashboard')}
               </Button>
             </Link>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Settings ⚙️</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t('settings')} ⚙️</h1>
           </div>
         </div>
 
         {/* Year & Month Settings */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Year & Month Settings</CardTitle>
+            <CardTitle>{t('yearMonthSettings')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="year">Year</Label>
+                <Label htmlFor="year">{t('year')}</Label>
                 <Input
                   id="year"
                   type="number"
@@ -132,7 +132,7 @@ const Settings = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="month">Month</Label>
+                <Label htmlFor="month">{t('month')}</Label>
                 <Select
                   value={settings.currentMonth}
                   onValueChange={(value) => setSettings(prev => ({ ...prev, currentMonth: value }))}
@@ -149,7 +149,7 @@ const Settings = () => {
               </div>
             </div>
             <Button onClick={handleSaveYearMonth} className="mt-4">
-              Save Year & Month
+              {t('saveYearMonth')}
             </Button>
           </CardContent>
         </Card>
@@ -157,17 +157,17 @@ const Settings = () => {
         {/* Categories Settings */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Expense Categories</CardTitle>
+            <CardTitle>{t('expenseCategories')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="mb-4">
-              <Label htmlFor="newCategory">Add New Category</Label>
+              <Label htmlFor="newCategory">{t('addNewCategory')}</Label>
               <div className="flex gap-2">
                 <Input
                   id="newCategory"
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
-                  placeholder="Enter new category"
+                  placeholder={t('enterNewCategory')}
                 />
                 <Button onClick={handleAddCategory}>
                   <Plus className="h-4 w-4" />
@@ -176,7 +176,7 @@ const Settings = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Current Categories</Label>
+              <Label>{t('currentCategories')}</Label>
               {settings.categories.map((category) => (
                 <div key={category} className="flex items-center justify-between p-2 border rounded">
                   {editingCategory === category ? (
@@ -223,7 +223,7 @@ const Settings = () => {
         {/* Colors Settings */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Dashboard Colors</CardTitle>
+            <CardTitle>{t('dashboardColors')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -257,20 +257,24 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* Copy from Previous Month */}
-        <Card>
+        {/* Language Settings */}
+        <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Data Management</CardTitle>
+            <CardTitle>{t('language')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Copy data from the previous month to the current month. This will reset all realization amounts to 0.
-              </p>
-              <Button onClick={handleCopyFromPreviousMonth} variant="outline">
-                Copy Data from Previous Month
-              </Button>
-            </div>
+            <Select
+              value={settings.lang}
+              onValueChange={handleLanguageChange}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">{t('english')}</SelectItem>
+                <SelectItem value="id">{t('bahasaIndonesia')}</SelectItem>
+              </SelectContent>
+            </Select>
           </CardContent>
         </Card>
       </div>

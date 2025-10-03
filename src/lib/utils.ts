@@ -1,5 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import CryptoJS from 'crypto-js';
+import { translations } from './translations';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -27,20 +29,32 @@ export function getMonthNameFromKey(key: string): string {
   return monthIndex >= 0 ? monthNames[monthIndex] : "January";
 }
 
+// Get current user for data prefixing
+export function getCurrentUser(): string | null {
+  return localStorage.getItem('currentUser');
+}
+
+// Get prefixed localStorage key
+export function getPrefixedKey(key: string): string {
+  const currentUser = getCurrentUser();
+  return currentUser ? `${currentUser}_${key}` : key;
+}
+
 // Load global settings
 export function loadGlobalSettings() {
   try {
-    const settings = localStorage.getItem('tagihan_global_settings');
+    const settings = localStorage.getItem(getPrefixedKey('tagihan_global_settings'));
     return settings ? JSON.parse(settings) : {
       currentYear: new Date().getFullYear(),
       currentMonth: new Date().toLocaleString('default', { month: 'long' }),
       categories: ["Zakat", "Pajak", "Keluarga", "Rumah", "Lainnya"],
       colors: {
         income: "green-100",
-        budgeted_expenses: "green-100",
-        spending: "green-100",
-        savings: "green-100"
-      }
+        budgeted_expenses: "orange-100",
+        spending: "red-100",
+        savings: "blue-100"
+      },
+      lang: "en" // Default language
     };
   } catch {
     return {
@@ -49,23 +63,24 @@ export function loadGlobalSettings() {
       categories: ["Zakat", "Pajak", "Keluarga", "Rumah", "Lainnya"],
       colors: {
         income: "green-100",
-        budgeted_expenses: "green-100",
-        spending: "green-100",
-        savings: "green-100"
-      }
+        budgeted_expenses: "orange-100",
+        spending: "red-100",
+        savings: "blue-100"
+      },
+      lang: "en" // Default language
     };
   }
 }
 
 // Save global settings
 export function saveGlobalSettings(settings: any) {
-  localStorage.setItem('tagihan_global_settings', JSON.stringify(settings));
+  localStorage.setItem(getPrefixedKey('tagihan_global_settings'), JSON.stringify(settings));
 }
 
 // Load month data
 export function loadMonthData(key: string) {
   try {
-    const allData = localStorage.getItem('tagihan_data');
+    const allData = localStorage.getItem(getPrefixedKey('tagihan_data'));
     const data = allData ? JSON.parse(allData) : {};
     return data[key] || {
       incomeSources: [],
@@ -84,10 +99,10 @@ export function loadMonthData(key: string) {
 // Save month data
 export function saveMonthData(key: string, monthData: any) {
   try {
-    const allData = localStorage.getItem('tagihan_data');
+    const allData = localStorage.getItem(getPrefixedKey('tagihan_data'));
     const data = allData ? JSON.parse(allData) : {};
     data[key] = monthData;
-    localStorage.setItem('tagihan_data', JSON.stringify(data));
+    localStorage.setItem(getPrefixedKey('tagihan_data'), JSON.stringify(data));
   } catch (error) {
     console.error('Error saving month data:', error);
   }
@@ -140,4 +155,27 @@ export function formatCurrency(amount: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   }).format(amount);
+}
+
+// Password hashing
+export function hashPassword(password: string): string {
+  return CryptoJS.SHA256(password).toString();
+}
+
+export function checkPassword(password: string, hashedPassword: string): boolean {
+  return hashPassword(password) === hashedPassword;
+}
+
+// Translation helper
+export function t(key: keyof typeof translations.en, vars?: { [key: string]: string | number }): string {
+  const settings = loadGlobalSettings();
+  const lang = settings.lang || 'en';
+  let text = translations[lang][key] || translations.en[key] || key;
+
+  if (vars) {
+    for (const [varKey, varValue] of Object.entries(vars)) {
+      text = text.replace(`{${varKey}}`, String(varValue));
+    }
+  }
+  return text;
 }
