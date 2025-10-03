@@ -166,6 +166,29 @@ export function checkPassword(password: string, hashedPassword: string): boolean
   return hashPassword(password) === hashedPassword;
 }
 
+// User management for local storage
+interface UserCredentials {
+  [username: string]: string; // username: hashedPassword
+}
+
+export function loadUsers(): UserCredentials {
+  try {
+    const users = localStorage.getItem('tagihan_users');
+    return users ? JSON.parse(users) : {};
+  } catch (error) {
+    console.error('Error loading users:', error);
+    return {};
+  }
+}
+
+export function saveUsers(users: UserCredentials) {
+  try {
+    localStorage.setItem('tagihan_users', JSON.stringify(users));
+  } catch (error) {
+    console.error('Error saving users:', error);
+  }
+}
+
 // Translation helper
 export function t(key: keyof typeof translations.en, vars?: { [key: string]: string | number }): string {
   const settings = loadGlobalSettings();
