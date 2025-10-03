@@ -243,8 +243,8 @@ const Index = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('currentUser');
+    localStorage.removeItem('isLoggedIn'); // Only remove the login status
+    // Do NOT remove 'currentUser' or 'user_hash' as they define the app's single user
     navigate('/login');
   };
 
