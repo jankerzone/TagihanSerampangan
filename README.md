@@ -18,7 +18,7 @@ Untuk menjalankan proyek ini secara lokal, ikuti langkah-langkah berikut:
 
 1.  **Clone repositori:**
     ```bash
-    git clone <URL_REPOSITORI_ANDA>
+    git clone git@github.com:jankerzone/TagihanSerampangan.git
     cd TagihanSerampangan
     ```
 
