@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { hashPassword, checkPassword, t, loadUsers, saveUsers } from "@/lib/utils";
+import { t } from "@/lib/utils";
 import { showSuccess, showError } from "@/utils/toast";
+import { api } from "@/lib/api";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -15,16 +16,9 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
-  const [users, setUsers] = useState(loadUsers());
+  const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    // If no users exist at all, default to registration mode
-    if (Object.keys(users).length === 0) {
-      setIsRegistering(true);
-    }
-  }, [users]);
-
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!username || !password || (isRegistering && !confirmPassword)) {
       showError(t('requiredFields'));
       return;
@@ -33,42 +27,41 @@ const Login = () => {
       showError(t('passwordsMismatch'));
       return;
     }
-    if (users[username]) {
-      showError("Username already exists. Please try logging in or choose another username.");
-      return;
-    }
 
+    setIsLoading(true);
     try {
-      const hashedPassword = hashPassword(password);
-      const updatedUsers = { ...users, [username]: hashedPassword };
-      saveUsers(updatedUsers);
-      setUsers(updatedUsers); // Update local state
-      
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('currentUser', username);
-      showSuccess(t('passwordSetSuccess'));
-      navigate('/');
-    } catch (error) {
-      console.error("Error setting password:", error);
-      showError(t('passwordSetError'));
+      const response = await api.auth.register({ username, password });
+      showSuccess("Registration successful! Please login.");
+      setIsRegistering(false);
+      setPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      console.error("Error registering:", error);
+      showError(error.message || t('passwordSetError'));
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!username || !password) {
       showError(t('requiredFields'));
       return;
     }
 
-    const storedHash = users[username];
-
-    if (storedHash && checkPassword(password, storedHash)) {
+    setIsLoading(true);
+    try {
+      const response = await api.auth.login({ username, password });
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('currentUser', response.user.username);
       localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('currentUser', username);
-      showSuccess("Login successful!"); // Using a generic success message for login
+      showSuccess("Login successful!");
       navigate('/');
-    } else {
-      showError(t('loginFailed'));
+    } catch (error: any) {
+      console.error("Error logging in:", error);
+      showError(error.message || t('loginFailed'));
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -94,6 +87,7 @@ const Login = () => {
               onChange={(e) => setUsername(e.target.value)}
               placeholder={t('emailUsername')}
               required
+              disabled={isLoading}
             />
           </div>
           <div>
@@ -105,6 +99,7 @@ const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder={t('password')}
               required
+              disabled={isLoading}
             />
           </div>
           {isRegistering && (
@@ -117,13 +112,14 @@ const Login = () => {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder={t('confirmPassword')}
                 required
+                disabled={isLoading}
               />
             </div>
           )}
-          <Button onClick={isRegistering ? handleRegister : handleLogin} className="w-full">
-            {isRegistering ? t('setPasswordButton') : t('loginButton')}
+          <Button onClick={isRegistering ? handleRegister : handleLogin} className="w-full" disabled={isLoading}>
+            {isLoading ? "Loading..." : (isRegistering ? t('setPasswordButton') : t('loginButton'))}
           </Button>
-          <Button variant="link" onClick={handleToggleRegister} className="w-full">
+          <Button variant="link" onClick={handleToggleRegister} className="w-full" disabled={isLoading}>
             {isRegistering ? "Already have an account? Login" : "Don't have an account? Register"}
           </Button>
         </CardContent>

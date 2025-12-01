@@ -6,41 +6,72 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, Trash2, Edit, Check, X } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit, Check, X, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  loadGlobalSettings, 
-  saveGlobalSettings, 
-  getMonthKey,
+import {
   monthNames,
-  monthNumbers,
   t
 } from "@/lib/utils";
 import { showSuccess, showError } from "@/utils/toast";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from "@/lib/api";
 
 const Settings = () => {
   const navigate = useNavigate();
-  const [settings, setSettings] = useState(loadGlobalSettings());
+  const queryClient = useQueryClient();
+
   const [newCategory, setNewCategory] = useState('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editCategoryValue, setEditCategoryValue] = useState('');
 
-  // Save settings when they change
-  useEffect(() => {
-    saveGlobalSettings(settings);
-  }, [settings]);
+  // Fetch Global Settings
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ['settings'],
+    queryFn: api.settings.getGlobal,
+    initialData: {
+      currentYear: new Date().getFullYear(),
+      currentMonth: new Date().toLocaleString('default', { month: 'long' }),
+      categories: ["Zakat", "Pajak", "Keluarga", "Rumah", "Lainnya"],
+      colors: {
+        income: "green-100",
+        budgeted_expenses: "orange-100",
+        spending: "red-100",
+        savings: "blue-100"
+      },
+      lang: "en"
+    }
+  });
+
+  // Mutation to save settings
+  const saveSettingsMutation = useMutation({
+    mutationFn: (newSettings: any) => api.settings.saveGlobal(newSettings),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      showSuccess(t('saveYearMonth')); // Generic success for save
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to save settings");
+    }
+  });
+
+  // Helper to update settings
+  const updateSettings = (newSettings: any) => {
+    saveSettingsMutation.mutate(newSettings);
+  };
 
   const handleSaveYearMonth = () => {
-    saveGlobalSettings(settings);
+    // Already handled by onChange in inputs calling updateSettings, but we can keep the button for explicit save feel
+    // or just show a toast.
     showSuccess(t('saveYearMonth'));
   };
 
   const handleAddCategory = () => {
     if (newCategory.trim() && !settings.categories.includes(newCategory.trim())) {
-      setSettings(prev => ({
-        ...prev,
-        categories: [...prev.categories, newCategory.trim()]
-      }));
+      const updatedSettings = {
+        ...settings,
+        categories: [...settings.categories, newCategory.trim()]
+      };
+      updateSettings(updatedSettings);
       setNewCategory('');
       showSuccess(t('categoryAdded'));
     } else if (!newCategory.trim()) {
@@ -55,12 +86,13 @@ const Settings = () => {
 
   const handleSaveEditCategory = () => {
     if (editingCategory && editCategoryValue.trim()) {
-      setSettings(prev => ({
-        ...prev,
-        categories: prev.categories.map(cat => 
+      const updatedSettings = {
+        ...settings,
+        categories: settings.categories.map((cat: string) =>
           cat === editingCategory ? editCategoryValue.trim() : cat
         )
-      }));
+      };
+      updateSettings(updatedSettings);
       setEditingCategory(null);
       setEditCategoryValue('');
       showSuccess(t('categoryUpdated'));
@@ -76,17 +108,18 @@ const Settings = () => {
 
   const handleDeleteCategory = (category: string) => {
     if (window.confirm(t('areYouSureDeleteCategory', { category }))) {
-      setSettings(prev => ({
-        ...prev,
-        categories: prev.categories.filter(cat => cat !== category)
-      }));
+      const updatedSettings = {
+        ...settings,
+        categories: settings.categories.filter((cat: string) => cat !== category)
+      };
+      updateSettings(updatedSettings);
       showSuccess(t('categoryDeleted'));
     }
   };
 
   const handleLanguageChange = (lang: string) => {
-    setSettings(prev => ({ ...prev, lang }));
-    // No need to redirect, useEffect will save and dashboard will re-render
+    const updatedSettings = { ...settings, lang };
+    updateSettings(updatedSettings);
   };
 
   const colorOptions = [
@@ -99,6 +132,10 @@ const Settings = () => {
     "pink-100", "pink-200", "pink-300", "pink-400", "pink-500", "pink-600", "pink-700", "pink-800", "pink-900",
     "teal-100", "teal-200", "teal-300", "teal-400", "teal-500", "teal-600", "teal-700", "teal-800", "teal-900",
   ];
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -129,14 +166,14 @@ const Settings = () => {
                   id="year"
                   type="number"
                   value={settings.currentYear}
-                  onChange={(e) => setSettings(prev => ({ ...prev, currentYear: parseInt(e.target.value) || 2025 }))}
+                  onChange={(e) => updateSettings({ ...settings, currentYear: parseInt(e.target.value) || 2025 })}
                 />
               </div>
               <div>
                 <Label htmlFor="month">{t('month')}</Label>
                 <Select
                   value={settings.currentMonth}
-                  onValueChange={(value) => setSettings(prev => ({ ...prev, currentMonth: value }))}
+                  onValueChange={(value) => updateSettings({ ...settings, currentMonth: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -149,9 +186,7 @@ const Settings = () => {
                 </Select>
               </div>
             </div>
-            <Button onClick={handleSaveYearMonth} className="mt-4">
-              {t('saveYearMonth')}
-            </Button>
+            {/* Removed redundant save button as we save on change now, or we can keep it but it does nothing extra */}
           </CardContent>
         </Card>
 
@@ -178,7 +213,7 @@ const Settings = () => {
 
             <div className="space-y-2">
               <Label>{t('currentCategories')}</Label>
-              {settings.categories.map((category) => (
+              {settings.categories.map((category: string) => (
                 <div key={category} className="flex items-center justify-between p-2 border rounded">
                   {editingCategory === category ? (
                     <div className="flex items-center gap-2 flex-1">
@@ -232,13 +267,12 @@ const Settings = () => {
                 <div key={key}>
                   <Label htmlFor={key}>{key.replace('_', ' ').toUpperCase()}</Label>
                   <Select
-                    value={value}
+                    value={value as string}
                     onValueChange={(newValue) => {
-                      setSettings(prev => ({
-                        ...prev,
-                        colors: { ...prev.colors, [key]: newValue }
-                      }));
-                      showSuccess(t('colorsUpdated')); // Show success toast on color change
+                      updateSettings({
+                        ...settings,
+                        colors: { ...settings.colors, [key]: newValue }
+                      });
                     }}
                   >
                     <SelectTrigger>

@@ -1,0 +1,127 @@
+import { Hono } from 'hono';
+
+type Bindings = {
+    DB: D1Database;
+};
+
+const app = new Hono<{ Bindings: Bindings; Variables: { jwtPayload: any } }>();
+
+// Get data for a specific month
+app.get('/:monthKey', async (c) => {
+    const userId = c.get('jwtPayload').id;
+    const monthKey = c.req.param('monthKey');
+
+    const incomeSources = await c.env.DB.prepare(
+        'SELECT * FROM income_sources WHERE user_id = ? AND month_key = ?'
+    )
+        .bind(userId, monthKey)
+        .all();
+
+    const savingList = await c.env.DB.prepare(
+        'SELECT * FROM savings WHERE user_id = ? AND month_key = ?'
+    )
+        .bind(userId, monthKey)
+        .all();
+
+    const budgetingList = await c.env.DB.prepare(
+        'SELECT * FROM budget_items WHERE user_id = ? AND month_key = ?'
+    )
+        .bind(userId, monthKey)
+        .all();
+
+    return c.json({
+        incomeSources: incomeSources.results,
+        savingList: savingList.results,
+        budgetingList: budgetingList.results,
+    });
+});
+
+// Save data for a specific month (Full Replace Strategy for simplicity)
+app.post('/:monthKey', async (c) => {
+    const userId = c.get('jwtPayload').id;
+    const monthKey = c.req.param('monthKey');
+    const data = await c.req.json();
+
+    const { incomeSources, savingList, budgetingList } = data;
+
+    // Transaction to replace data
+    const batch = [];
+
+    // 1. Delete existing data for this month
+    batch.push(c.env.DB.prepare('DELETE FROM income_sources WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
+    batch.push(c.env.DB.prepare('DELETE FROM savings WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
+    batch.push(c.env.DB.prepare('DELETE FROM budget_items WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
+
+    // 2. Insert new data
+    if (incomeSources && incomeSources.length > 0) {
+        const stmt = c.env.DB.prepare(
+            'INSERT INTO income_sources (id, user_id, month_key, name, amount) VALUES (?, ?, ?, ?, ?)'
+        );
+        for (const item of incomeSources) {
+            batch.push(stmt.bind(item.id, userId, monthKey, item.name, item.amount));
+        }
+    }
+
+    if (savingList && savingList.length > 0) {
+        const stmt = c.env.DB.prepare(
+            'INSERT INTO savings (id, user_id, month_key, name, amount) VALUES (?, ?, ?, ?, ?)'
+        );
+        for (const item of savingList) {
+            batch.push(stmt.bind(item.id, userId, monthKey, item.name, item.amount));
+        }
+    }
+
+    if (budgetingList && budgetingList.length > 0) {
+        const stmt = c.env.DB.prepare(
+            'INSERT INTO budget_items (id, user_id, month_key, name, allocation, realization, category) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        );
+        for (const item of budgetingList) {
+            batch.push(stmt.bind(item.id, userId, monthKey, item.name, item.allocation, item.realization, item.category));
+        }
+    }
+
+    await c.env.DB.batch(batch);
+
+    return c.json({ success: true });
+});
+
+// Get Global Settings
+app.get('/settings/global', async (c) => {
+    const userId = c.get('jwtPayload').id;
+    const result = await c.env.DB.prepare('SELECT settings_json FROM global_settings WHERE user_id = ?').bind(userId).first();
+
+    if (result) {
+        return c.json(JSON.parse(result.settings_json as string));
+    } else {
+        // Return default settings if none exist
+        return c.json({
+            currentYear: new Date().getFullYear(),
+            currentMonth: new Date().toLocaleString('default', { month: 'long' }),
+            categories: ["Zakat", "Pajak", "Keluarga", "Rumah", "Lainnya"],
+            colors: {
+                income: "green-100",
+                budgeted_expenses: "orange-100",
+                spending: "red-100",
+                savings: "blue-100"
+            },
+            lang: "en"
+        });
+    }
+});
+
+// Save Global Settings
+app.post('/settings/global', async (c) => {
+    const userId = c.get('jwtPayload').id;
+    const settings = await c.req.json();
+    const settingsJson = JSON.stringify(settings);
+
+    await c.env.DB.prepare(
+        'INSERT INTO global_settings (user_id, settings_json) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET settings_json = ?, updated_at = CURRENT_TIMESTAMP'
+    )
+        .bind(userId, settingsJson, settingsJson)
+        .run();
+
+    return c.json({ success: true });
+});
+
+export const dataRoutes = app;
