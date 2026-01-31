@@ -854,9 +854,9 @@ const Index = () => {
         </div>
 
         {/* Monthly Report */}
-        <Card className="mb-6 bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-800 dark:to-gray-900 border-green-200 dark:border-gray-700">
+        <Card className="mb-6 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="text-green-800 dark:text-green-400 flex items-center gap-2">
+            <CardTitle className="text-gray-900 dark:text-gray-100 flex items-center gap-2">
               <span>{t('monthlyReport')}</span>
             </CardTitle>
           </CardHeader>
@@ -873,15 +873,15 @@ const Index = () => {
                 <CardContent className="p-4">
                   <div className={`text-sm font-medium ${savingsColors.textColor}`}>Planned Savings</div>
                   <div className={`text-xl font-bold ${savingsColors.textColor}`}>{formatCurrency(totalPlannedSavings)}</div>
-                  <div className="text-xs mt-1 opacity-75">Investment, Gold, etc.</div>
+                  <div className={`text-xs mt-1 ${savingsColors.textColor} opacity-75`}>Investment, Gold, etc.</div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-purple-200 border-purple-300 border dark:bg-purple-900 dark:border-purple-700">
+              <Card className={`${budgetedColors.bgColor} ${budgetedColors.borderColor} border`}>
                 <CardContent className="p-4">
-                  <div className="text-sm font-medium text-purple-800 dark:text-purple-200">Available to Spend</div>
-                  <div className="text-xl font-bold text-purple-800 dark:text-purple-200">{formatCurrency(availableToSpend)}</div>
-                  <div className="text-xs mt-1 opacity-75">Income - Savings</div>
+                  <div className={`text-sm font-medium ${budgetedColors.textColor}`}>Available to Spend</div>
+                  <div className={`text-xl font-bold ${budgetedColors.textColor}`}>{formatCurrency(availableToSpend)}</div>
+                  <div className={`text-xs mt-1 ${budgetedColors.textColor} opacity-75`}>Income - Savings</div>
                 </CardContent>
               </Card>
 
