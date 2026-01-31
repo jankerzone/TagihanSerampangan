@@ -631,15 +631,30 @@ const Index = () => {
   };
 
   const handleExportData = () => {
-    const dataStr = JSON.stringify(data, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `financial-data-${currentYear}-${currentMonth}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const exportData = {
+        incomeSources: data.incomeSources,
+        savingList: data.savingList,
+        budgetingList: data.budgetingList,
+        exportDate: new Date().toISOString(),
+        monthKey: currentKey
+      };
+      
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `tagihan-${currentKey}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showSuccess("Data exported successfully!");
+    } catch (error) {
+      showError("Failed to export data");
+      console.error("Export error:", error);
+    }
   };
 
   const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -654,15 +669,28 @@ const Index = () => {
 
         // Basic validation
         if (!parsedData.incomeSources || !parsedData.savingList || !parsedData.budgetingList) {
-          throw new Error("Invalid file format");
+          throw new Error("Invalid file format - missing required fields");
         }
 
-        saveDataMutation.mutate(parsedData);
-        showSuccess("Data imported successfully");
-      } catch (error) {
-        showError("Failed to import data: Invalid file format");
+        // Import only the data arrays
+        const importData = {
+          incomeSources: parsedData.incomeSources,
+          savingList: parsedData.savingList,
+          budgetingList: parsedData.budgetingList
+        };
+
+        saveDataMutation.mutate(importData);
+        showSuccess(`Data imported successfully! Imported ${parsedData.incomeSources.length} income sources, ${parsedData.budgetingList.length} budget items`);
+      } catch (error: any) {
+        showError(`Failed to import: ${error.message}`);
+        console.error("Import error:", error);
       }
     };
+    
+    reader.onerror = () => {
+      showError("Failed to read file");
+    };
+    
     reader.readAsText(file);
     // Reset the input so the same file can be selected again if needed
     event.target.value = '';
@@ -924,7 +952,7 @@ const Index = () => {
               </div>
 
               <div className="space-y-4 flex-1 min-w-[200px]">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   Export or import data for backup purposes.
                 </p>
                 <div className="flex gap-2">
@@ -932,18 +960,18 @@ const Index = () => {
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>
-                  <div className="relative">
+                  <label className="relative cursor-pointer">
                     <input
                       type="file"
                       accept=".json"
                       onChange={handleImportData}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
-                    <Button variant="outline" className="w-full">
+                    <Button variant="outline" className="w-full pointer-events-none">
                       <Upload className="h-4 w-4 mr-2" />
                       Import
                     </Button>
-                  </div>
+                  </label>
                 </div>
               </div>
             </div>
