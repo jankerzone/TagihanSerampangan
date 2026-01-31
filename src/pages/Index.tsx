@@ -402,11 +402,11 @@ const Index = () => {
   });
 
   // Calculations
-  const totalIncome = data.incomeSources.reduce((sum: number, item: IncomeSource) => sum + item.amount, 0);
-  const totalPlannedSavings = monthContributions.total || 0; // Use actual contributions from savings goals
+  const totalIncome = data?.incomeSources?.reduce((sum: number, item: IncomeSource) => sum + item.amount, 0) || 0;
+  const totalPlannedSavings = monthContributions?.total || 0; // Use actual contributions from savings goals
   const availableToSpend = totalIncome - totalPlannedSavings;
-  const totalBudgetedExpenses = data.budgetingList.reduce((sum: number, item: BudgetItem) => sum + item.allocation, 0);
-  const totalSpending = data.budgetingList.reduce((sum: number, item: BudgetItem) => sum + item.realization, 0);
+  const totalBudgetedExpenses = data?.budgetingList?.reduce((sum: number, item: BudgetItem) => sum + item.allocation, 0) || 0;
+  const totalSpending = data?.budgetingList?.reduce((sum: number, item: BudgetItem) => sum + item.realization, 0) || 0;
   const remainingMoney = availableToSpend - totalSpending;
 
   // Handlers
@@ -777,7 +777,7 @@ const Index = () => {
   };
 
   const sortedBudgetingList = React.useMemo(() => {
-    let sortableItems = [...data.budgetingList];
+    let sortableItems = [...(data?.budgetingList || [])];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         // Handle string comparison for name and category
@@ -803,7 +803,7 @@ const Index = () => {
       });
     }
     return sortableItems;
-  }, [data.budgetingList, sortConfig]);
+  }, [data?.budgetingList, sortConfig]);
 
   const selectedBudget = data.budgetingList.find((item: BudgetItem) => item.id === selectedBudgetId);
 
@@ -820,7 +820,7 @@ const Index = () => {
   const spendingColors = getDerivedColorClasses(colors.spending || "red-100");
   const savingsColors = getDerivedColorClasses(colors.savings || "blue-100");
 
-  if (isSettingsLoading) {
+  if (isSettingsLoading || isDataLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
