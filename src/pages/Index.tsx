@@ -38,6 +38,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from "@/lib/api";
 import { EditableCell } from "@/components/EditableCell";
 import { EditableTextField } from "@/components/EditableTextField";
+import { EditableCategoryCell } from "@/components/EditableCategoryCell";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 // Types
@@ -244,7 +245,6 @@ const Index = () => {
   const [isAddBudgetOpen, setIsAddBudgetOpen] = useState(false);
   const [isEditRealizationOpen, setIsEditRealizationOpen] = useState(false);
   const [isEditAllocationOpen, setIsEditAllocationOpen] = useState(false);
-  const [isChangeCategoryOpen, setIsChangeCategoryOpen] = useState(false);
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [newIncome, setNewIncome] = useState({ name: '', amount: '' });
   const [newSaving, setNewSaving] = useState({ name: '', amount: '' });
@@ -518,28 +518,6 @@ const Index = () => {
     } else {
       showError(t('requiredFields'));
     }
-  };
-
-  const handleChangeCategory = (newCategory: string) => {
-    if (selectedBudgetId) {
-      const updatedData = {
-        ...data,
-        budgetingList: data.budgetingList.map((item: BudgetItem) =>
-          item.id === selectedBudgetId
-            ? { ...item, category: newCategory }
-            : item
-        )
-      };
-      saveDataMutation.mutate(updatedData);
-      showSuccess(t('categoryUpdated'));
-      setIsChangeCategoryOpen(false);
-      setSelectedBudgetId(null);
-    }
-  };
-
-  const openChangeCategory = (id: string) => {
-    setSelectedBudgetId(id);
-    setIsChangeCategoryOpen(true);
   };
 
   const handleDeleteItem = (type: 'income' | 'saving' | 'budget', id: string) => {
@@ -1263,13 +1241,17 @@ const Index = () => {
                               />
                             </TableCell>
                             <TableCell>
-                              <Badge 
-                                variant="secondary" 
-                                className={`cursor-pointer ${getDefaultCategoryColor(budget.category)}`}
-                                onClick={() => openChangeCategory(budget.id)}
-                              >
-                                {budget.category}
-                              </Badge>
+                              <EditableCategoryCell
+                                value={budget.category}
+                                categories={globalSettings.categories}
+                                onSave={async (value) => {
+                                  await updateBudgetItemMutation.mutateAsync({
+                                    id: budget.id,
+                                    updates: { category: value }
+                                  });
+                                }}
+                                getCategoryColor={getDefaultCategoryColor}
+                              />
                             </TableCell>
                             <TableCell className="text-right">
                               <EditableCell
@@ -1397,26 +1379,6 @@ const Index = () => {
                 />
               </div>
               <Button onClick={handleEditAllocation} className="w-full">{t('updateAllocation')}</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={isChangeCategoryOpen} onOpenChange={setIsChangeCategoryOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('category')}</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-2">
-              {globalSettings.categories.map((category: string) => (
-                <Button 
-                  key={category} 
-                  variant="outline" 
-                  onClick={() => handleChangeCategory(category)}
-                  className={`${getDefaultCategoryColor(category)} ${selectedBudget?.category === category ? "ring-2 ring-offset-2 ring-black" : "border-transparent"}`}
-                >
-                  {category}
-                </Button>
-              ))}
             </div>
           </DialogContent>
         </Dialog>
