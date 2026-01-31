@@ -21,7 +21,29 @@ const SavingsGoals = () => {
 
   const { data: goalsData, isLoading } = useQuery({
     queryKey: ['savingsGoals'],
-    queryFn: api.savingsGoals.getAll,
+    queryFn: async () => {
+      const response = await api.savingsGoals.getAll();
+      // Fetch running balance for each goal
+      const goalsWithBalances = await Promise.all(
+        response.goals.map(async (goal: any) => {
+          try {
+            const detailResponse = await api.savingsGoals.getOne(goal.id);
+            return {
+              ...goal,
+              runningBalance: detailResponse.runningBalance || 0,
+              progressPercent: detailResponse.progressPercent || 0
+            };
+          } catch (error) {
+            return {
+              ...goal,
+              runningBalance: 0,
+              progressPercent: 0
+            };
+          }
+        })
+      );
+      return { goals: goalsWithBalances };
+    },
     initialData: { goals: [] }
   });
 
@@ -145,7 +167,7 @@ const SavingsGoals = () => {
         {/* Goals Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {goalsData.goals.map((goal: any) => {
-            const saved = goal.current_balance || 0;
+            const saved = goal.runningBalance || 0;
             const progress = goal.target_amount > 0 ? Math.round((saved / goal.target_amount) * 100) : 0;
             
             return (
