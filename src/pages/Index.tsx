@@ -679,10 +679,17 @@ const Index = () => {
           budgetingList: parsedData.budgetingList
         };
 
-        saveDataMutation.mutate(importData);
-        showSuccess(`Data imported successfully! Imported ${parsedData.incomeSources.length} income sources, ${parsedData.budgetingList.length} budget items`);
+        // Use mutation with proper success/error handling
+        saveDataMutation.mutate(importData, {
+          onSuccess: () => {
+            showSuccess(`Imported ${parsedData.incomeSources.length} income, ${parsedData.budgetingList.length} expenses, ${parsedData.savingList.length} savings!`);
+          },
+          onError: (error: any) => {
+            showError(`Failed to save imported data: ${error.message}`);
+          }
+        });
       } catch (error: any) {
-        showError(`Failed to import: ${error.message}`);
+        showError(`Failed to read file: ${error.message}`);
         console.error("Import error:", error);
       }
     };
