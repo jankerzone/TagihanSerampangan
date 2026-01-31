@@ -409,6 +409,55 @@ const Index = () => {
   const totalSpending = data?.budgetingList?.reduce((sum: number, item: BudgetItem) => sum + item.realization, 0) || 0;
   const remainingMoney = availableToSpend - totalSpending;
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input/textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      switch (e.key) {
+        case 'n':
+        case 'N':
+          // Open add budget item dialog
+          setIsAddBudgetOpen(true);
+          e.preventDefault();
+          break;
+        
+        case 'ArrowLeft':
+          // Previous month
+          const currentMonthIndex = monthNames.indexOf(currentMonth);
+          if (currentMonthIndex > 0) {
+            setCurrentMonth(monthNames[currentMonthIndex - 1]);
+          } else {
+            // Go to December of previous year
+            setCurrentYear(currentYear - 1);
+            setCurrentMonth('December');
+          }
+          e.preventDefault();
+          break;
+        
+        case 'ArrowRight':
+          // Next month
+          const monthIndex = monthNames.indexOf(currentMonth);
+          if (monthIndex < 11) {
+            setCurrentMonth(monthNames[monthIndex + 1]);
+          } else {
+            // Go to January of next year
+            setCurrentYear(currentYear + 1);
+            setCurrentMonth('January');
+          }
+          e.preventDefault();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentMonth, currentYear]);
+
   // Handlers
   const handleAddIncome = () => {
     if (newIncome.name && newIncome.amount) {
@@ -843,6 +892,17 @@ const Index = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="hidden md:block">
+              <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs">←</kbd>
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs ml-1">→</kbd>
+                <span className="ml-1">navigate</span>
+                <span className="mx-1">•</span>
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs">N</kbd>
+                <span className="ml-1">new item</span>
               </div>
             </div>
 
