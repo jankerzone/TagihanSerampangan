@@ -147,7 +147,7 @@ const SavingsContributionsSection = ({ currentKey }: { currentKey: string }) => 
     }
   });
 
-  if (goals.goals.length === 0) {
+  if (!goals || !goals.goals || goals.goals.length === 0) {
     return (
       <div className="text-center py-8">
         <PiggyBank className="h-12 w-12 mx-auto text-gray-400 mb-2" />
@@ -179,7 +179,7 @@ const SavingsContributionsSection = ({ currentKey }: { currentKey: string }) => 
                   <SelectValue placeholder="Choose a goal..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {goals.goals.map((g: any) => (
+                  {(goals?.goals || []).map((g: any) => (
                     <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -201,7 +201,7 @@ const SavingsContributionsSection = ({ currentKey }: { currentKey: string }) => 
         </DialogContent>
       </Dialog>
 
-      {contributions.contributions.length === 0 ? (
+      {(!contributions || !contributions.contributions || contributions.contributions.length === 0) ? (
         <p className="text-gray-500 text-center py-4">No contributions this month</p>
       ) : (
         <Table>
@@ -213,7 +213,7 @@ const SavingsContributionsSection = ({ currentKey }: { currentKey: string }) => 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {contributions.contributions.map((c: any) => (
+            {(contributions?.contributions || []).map((c: any) => (
               <TableRow key={c.id}>
                 <TableCell className="font-medium">{c.goal_name}</TableCell>
                 <TableCell className="text-right">{formatCurrency(c.amount)}</TableCell>
