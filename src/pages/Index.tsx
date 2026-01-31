@@ -10,8 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Edit3, Trash2, Settings, LogOut, Loader2, Download, Upload, ListPlus, CheckSquare, Pencil, ArrowUpDown, MoreHorizontal, PiggyBank } from 'lucide-react';
+import { PlusCircle, Trash2, Settings, LogOut, Loader2, Download, Upload, ListPlus, CheckSquare, ArrowUpDown, PiggyBank } from 'lucide-react';
 
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -243,14 +242,9 @@ const Index = () => {
   const [isAddIncomeOpen, setIsAddIncomeOpen] = useState(false);
   const [isAddSavingOpen, setIsAddSavingOpen] = useState(false);
   const [isAddBudgetOpen, setIsAddBudgetOpen] = useState(false);
-  const [isEditRealizationOpen, setIsEditRealizationOpen] = useState(false);
-  const [isEditAllocationOpen, setIsEditAllocationOpen] = useState(false);
-  const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [newIncome, setNewIncome] = useState({ name: '', amount: '' });
   const [newSaving, setNewSaving] = useState({ name: '', amount: '' });
   const [newBudget, setNewBudget] = useState({ name: '', allocation: '', category: "Lainnya" });
-  const [newRealization, setNewRealization] = useState('');
-  const [newAllocation, setNewAllocation] = useState('');
 
   // Bulk Add State
   const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
@@ -527,48 +521,6 @@ const Index = () => {
     }
   };
 
-  const handleEditRealization = () => {
-    if (selectedBudgetId && newRealization) {
-      const updatedData = {
-        ...data,
-        budgetingList: data.budgetingList.map((item: BudgetItem) =>
-          item.id === selectedBudgetId
-            ? { ...item, realization: parseInt(newRealization) }
-            : item
-        )
-      };
-
-      saveDataMutation.mutate(updatedData);
-
-      setNewRealization('');
-      setSelectedBudgetId(null);
-      setIsEditRealizationOpen(false);
-    } else {
-      showError(t('requiredFields'));
-    }
-  };
-
-  const handleEditAllocation = () => {
-    if (selectedBudgetId && newAllocation) {
-      const updatedData = {
-        ...data,
-        budgetingList: data.budgetingList.map((item: BudgetItem) =>
-          item.id === selectedBudgetId
-            ? { ...item, allocation: parseInt(newAllocation) }
-            : item
-        )
-      };
-
-      saveDataMutation.mutate(updatedData);
-
-      setNewAllocation('');
-      setSelectedBudgetId(null);
-      setIsEditAllocationOpen(false);
-    } else {
-      showError(t('requiredFields'));
-    }
-  };
-
   const handleDeleteItem = (type: 'income' | 'saving' | 'budget', id: string) => {
     let updatedData;
 
@@ -598,18 +550,6 @@ const Index = () => {
     if (!isNaN(yearNum)) {
       setCurrentYear(yearNum);
     }
-  };
-
-  const openEditRealization = (id: string, currentRealization: number) => {
-    setSelectedBudgetId(id);
-    setNewRealization(currentRealization.toString());
-    setIsEditRealizationOpen(true);
-  };
-
-  const openEditAllocation = (id: string, currentAllocation: number) => {
-    setSelectedBudgetId(id);
-    setNewAllocation(currentAllocation.toString());
-    setIsEditAllocationOpen(true);
   };
 
   const handleCopyFromPreviousMonth = async () => {
@@ -838,8 +778,6 @@ const Index = () => {
     }
     return sortableItems;
   }, [data?.budgetingList, sortConfig]);
-
-  const selectedBudget = data.budgetingList.find((item: BudgetItem) => item.id === selectedBudgetId);
 
   // Derived color classes for each panel
   const colors = globalSettings?.colors || {
@@ -1349,29 +1287,13 @@ const Index = () => {
                               </span>
                             </TableCell>
                             <TableCell>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0">
-                                    <span className="sr-only">Open menu</span>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => openEditRealization(budget.id, budget.realization)}>
-                                    <Edit3 className="mr-2 h-4 w-4" />
-                                    {t('editRealization')}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => openEditAllocation(budget.id, budget.allocation)}>
-                                    <Pencil className="mr-2 h-4 w-4" />
-                                    {t('editAllocation')}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleDeleteItem('budget', budget.id)} className="text-red-600 focus:text-red-600">
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    {t('delete')}
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteItem('budget', budget.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         );
@@ -1383,66 +1305,6 @@ const Index = () => {
             </Card>
           </div>
         </div>
-
-        {/* Edit Realization Dialog */}
-        <Dialog open={isEditRealizationOpen} onOpenChange={setIsEditRealizationOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('editRealization')}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              {selectedBudget && (
-                <div className="text-sm text-gray-600 italic">
-                  Allocation: {formatCurrency(selectedBudget.allocation)}
-                </div>
-              )}
-              <div>
-                <Label htmlFor="realizationAmount">{t('realizationAmount')}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="realizationAmount"
-                    type="number"
-                    value={newRealization}
-                    onChange={(e) => setNewRealization(e.target.value)}
-                    placeholder="e.g., 325000"
-                    className="flex-1"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={() => selectedBudget && setNewRealization(selectedBudget.allocation.toString())}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    Set to 100%
-                  </Button>
-                </div>
-              </div>
-              <Button onClick={handleEditRealization} className="w-full">{t('updateRealization')}</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit Allocation Dialog */}
-        <Dialog open={isEditAllocationOpen} onOpenChange={setIsEditAllocationOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('editAllocation')}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="allocationAmount">{t('allocationAmount')}</Label>
-                <Input
-                  id="allocationAmount"
-                  type="number"
-                  value={newAllocation}
-                  onChange={(e) => setNewAllocation(e.target.value)}
-                  placeholder="e.g., 325000"
-                />
-              </div>
-              <Button onClick={handleEditAllocation} className="w-full">{t('updateAllocation')}</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
 
       </div>
     </div>
