@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Edit3, Trash2, Settings, LogOut, Loader2, Download, Upload, ListPlus, CheckSquare, Pencil, ArrowUpDown, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, Settings, LogOut, Loader2, Download, Upload, ListPlus, CheckSquare, Pencil, ArrowUpDown, MoreHorizontal, PiggyBank } from 'lucide-react';
 
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -172,6 +172,13 @@ const Index = () => {
     }
   });
 
+  // Fetch month's savings contributions
+  const { data: monthContributions } = useQuery({
+    queryKey: ['savingsContributions', currentKey],
+    queryFn: () => api.savingsContributions.getMonthTotal(currentKey),
+    initialData: { total: 0 }
+  });
+
   // Mutation to save data
   const saveDataMutation = useMutation({
     mutationFn: (newData: FinancialData) => api.data.saveMonthData(currentKey, newData),
@@ -274,7 +281,7 @@ const Index = () => {
 
   // Calculations
   const totalIncome = data.incomeSources.reduce((sum: number, item: IncomeSource) => sum + item.amount, 0);
-  const totalPlannedSavings = data.savingList.reduce((sum: number, item: Saving) => sum + item.amount, 0);
+  const totalPlannedSavings = monthContributions.total || 0; // Use actual contributions from savings goals
   const availableToSpend = totalIncome - totalPlannedSavings;
   const totalBudgetedExpenses = data.budgetingList.reduce((sum: number, item: BudgetItem) => sum + item.allocation, 0);
   const totalSpending = data.budgetingList.reduce((sum: number, item: BudgetItem) => sum + item.realization, 0);
@@ -705,6 +712,12 @@ const Index = () => {
             </div>
 
             <ThemeToggle />
+            <Link to="/savings-goals">
+              <Button variant="outline" size="sm">
+                <PiggyBank className="h-4 w-4 mr-1" />
+                Goals
+              </Button>
+            </Link>
             <Link to="/settings">
               <Button variant="outline" size="sm">
                 <Settings className="h-4 w-4 mr-1" />
