@@ -398,8 +398,8 @@ const Index = () => {
   // Calculations
   const totalIncome = data?.incomeSources?.reduce((sum: number, item: IncomeSource) => sum + item.amount, 0) || 0;
   const totalPlannedSavings = monthContributions?.total || 0; // Use actual contributions from savings goals
-  const availableToSpend = totalIncome - totalPlannedSavings;
   const totalBudgetedExpenses = data?.budgetingList?.reduce((sum: number, item: BudgetItem) => sum + item.allocation, 0) || 0;
+  const availableToSpend = totalBudgetedExpenses; // Total allocated budget
   const totalSpending = data?.budgetingList?.reduce((sum: number, item: BudgetItem) => sum + item.realization, 0) || 0;
   const remainingMoney = availableToSpend - totalSpending;
 
@@ -892,7 +892,7 @@ const Index = () => {
                 <CardContent className="p-4">
                   <div className={`text-sm font-medium ${budgetedColors.textColor}`}>Available to Spend</div>
                   <div className={`text-xl font-bold ${budgetedColors.textColor}`}>{formatCurrency(availableToSpend)}</div>
-                  <div className={`text-xs mt-1 ${budgetedColors.textColor} opacity-75`}>Income - Savings</div>
+                  <div className={`text-xs mt-1 ${budgetedColors.textColor} opacity-75`}>Total Budget Allocation</div>
                 </CardContent>
               </Card>
 
