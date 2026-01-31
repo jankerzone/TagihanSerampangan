@@ -124,4 +124,121 @@ app.post('/settings/global', async (c) => {
     return c.json({ success: true });
 });
 
+// Update individual budget item
+app.patch('/budget-items/:id', async (c) => {
+    const userId = c.get('jwtPayload').id;
+    const itemId = c.req.param('id');
+    const updates = await c.req.json();
+
+    // Build dynamic update query based on provided fields
+    const allowedFields = ['name', 'allocation', 'realization', 'category'];
+    const updateFields: string[] = [];
+    const values: any[] = [];
+
+    for (const field of allowedFields) {
+        if (updates[field] !== undefined) {
+            updateFields.push(`${field} = ?`);
+            values.push(updates[field]);
+        }
+    }
+
+    if (updateFields.length === 0) {
+        return c.json({ error: 'No valid fields to update' }, 400);
+    }
+
+    // Add WHERE conditions
+    values.push(itemId, userId);
+
+    const query = `UPDATE budget_items SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`;
+    
+    await c.env.DB.prepare(query).bind(...values).run();
+
+    // Fetch and return updated item
+    const updatedItem = await c.env.DB.prepare(
+        'SELECT * FROM budget_items WHERE id = ? AND user_id = ?'
+    ).bind(itemId, userId).first();
+
+    if (!updatedItem) {
+        return c.json({ error: 'Item not found' }, 404);
+    }
+
+    return c.json({ success: true, item: updatedItem });
+});
+
+// Update individual income source
+app.patch('/income-sources/:id', async (c) => {
+    const userId = c.get('jwtPayload').id;
+    const itemId = c.req.param('id');
+    const updates = await c.req.json();
+
+    const allowedFields = ['name', 'amount'];
+    const updateFields: string[] = [];
+    const values: any[] = [];
+
+    for (const field of allowedFields) {
+        if (updates[field] !== undefined) {
+            updateFields.push(`${field} = ?`);
+            values.push(updates[field]);
+        }
+    }
+
+    if (updateFields.length === 0) {
+        return c.json({ error: 'No valid fields to update' }, 400);
+    }
+
+    values.push(itemId, userId);
+
+    const query = `UPDATE income_sources SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`;
+    
+    await c.env.DB.prepare(query).bind(...values).run();
+
+    const updatedItem = await c.env.DB.prepare(
+        'SELECT * FROM income_sources WHERE id = ? AND user_id = ?'
+    ).bind(itemId, userId).first();
+
+    if (!updatedItem) {
+        return c.json({ error: 'Item not found' }, 404);
+    }
+
+    return c.json({ success: true, item: updatedItem });
+});
+
+// Update individual saving
+app.patch('/savings/:id', async (c) => {
+    const userId = c.get('jwtPayload').id;
+    const itemId = c.req.param('id');
+    const updates = await c.req.json();
+
+    const allowedFields = ['name', 'amount'];
+    const updateFields: string[] = [];
+    const values: any[] = [];
+
+    for (const field of allowedFields) {
+        if (updates[field] !== undefined) {
+            updateFields.push(`${field} = ?`);
+            values.push(updates[field]);
+        }
+    }
+
+    if (updateFields.length === 0) {
+        return c.json({ error: 'No valid fields to update' }, 400);
+    }
+
+    values.push(itemId, userId);
+
+    const query = `UPDATE savings SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`;
+    
+    await c.env.DB.prepare(query).bind(...values).run();
+
+    const updatedItem = await c.env.DB.prepare(
+        'SELECT * FROM savings WHERE id = ? AND user_id = ?'
+    ).bind(itemId, userId).first();
+
+    if (!updatedItem) {
+        return c.json({ error: 'Item not found' }, 404);
+    }
+
+    return c.json({ success: true, item: updatedItem });
+});
+
 export const dataRoutes = app;

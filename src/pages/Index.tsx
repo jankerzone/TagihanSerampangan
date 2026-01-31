@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Edit3, Trash2, Settings, LogOut, Loader2, Download, Upload, ListPlus, CheckSquare } from 'lucide-react';
-import { MadeWithDyad } from "@/components/made-with-dyad";
+import { PlusCircle, Edit3, Trash2, Settings, LogOut, Loader2, Download, Upload, ListPlus, CheckSquare, Pencil, ArrowUpDown, MoreHorizontal } from 'lucide-react';
+
 import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
@@ -35,6 +36,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { showSuccess, showError } from "@/utils/toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from "@/lib/api";
+import { EditableCell } from "@/components/EditableCell";
+import { EditableTextField } from "@/components/EditableTextField";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 // Types
 interface IncomeSource {
@@ -90,6 +94,21 @@ const getDerivedColorClasses = (selectedColor: string) => {
   };
 };
 
+// Memoized Category Badge Component removed to fix lag - replaced with Dialog approach
+
+const categoryColors: Record<string, string> = {
+  'Zakat': 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200',
+  'Pajak': 'bg-amber-100 text-amber-800 hover:bg-amber-200',
+  'Keluarga': 'bg-blue-100 text-blue-800 hover:bg-blue-200',
+  'Rumah': 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200',
+  'Tagihan': 'bg-rose-100 text-rose-800 hover:bg-rose-200',
+  'Lainnya': 'bg-slate-100 text-slate-800 hover:bg-slate-200',
+};
+
+const getDefaultCategoryColor = (category: string) => {
+  return categoryColors[category] || 'bg-gray-100 text-gray-800 hover:bg-gray-200';
+};
+
 const Index = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -102,15 +121,21 @@ const Index = () => {
   const [isAddSavingOpen, setIsAddSavingOpen] = useState(false);
   const [isAddBudgetOpen, setIsAddBudgetOpen] = useState(false);
   const [isEditRealizationOpen, setIsEditRealizationOpen] = useState(false);
+  const [isEditAllocationOpen, setIsEditAllocationOpen] = useState(false);
+  const [isChangeCategoryOpen, setIsChangeCategoryOpen] = useState(false);
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [newIncome, setNewIncome] = useState({ name: '', amount: '' });
   const [newSaving, setNewSaving] = useState({ name: '', amount: '' });
   const [newBudget, setNewBudget] = useState({ name: '', allocation: '', category: "Lainnya" });
   const [newRealization, setNewRealization] = useState('');
+  const [newAllocation, setNewAllocation] = useState('');
 
   // Bulk Add State
   const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
   const [bulkAddText, setBulkAddText] = useState('');
+
+  // Sorting State
+  const [sortConfig, setSortConfig] = useState<{ key: keyof BudgetItem, direction: 'asc' | 'desc' } | null>(null);
 
   // Fetch Global Settings
   const { data: globalSettings, isLoading: isSettingsLoading } = useQuery({
@@ -166,11 +191,94 @@ const Index = () => {
     }
   });
 
+  // Optimistic update mutations for individual items
+  const updateBudgetItemMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<BudgetItem> }) => 
+      api.budgetItems.update(id, updates),
+    onMutate: async ({ id, updates }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['monthData', currentKey] });
+      
+      // Snapshot previous value
+      const previousData = queryClient.getQueryData(['monthData', currentKey]);
+      
+      // Optimistically update
+      queryClient.setQueryData(['monthData', currentKey], (old: any) => ({
+        ...old,
+        budgetingList: old.budgetingList.map((item: BudgetItem) =>
+          item.id === id ? { ...item, ...updates } : item
+        ),
+      }));
+      
+      return { previousData };
+    },
+    onError: (err, variables, context: any) => {
+      // Rollback on error
+      queryClient.setQueryData(['monthData', currentKey], context.previousData);
+      showError('Failed to update budget item');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['monthData', currentKey] });
+    },
+  });
+
+  const updateIncomeSourceMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<IncomeSource> }) => 
+      api.incomeSources.update(id, updates),
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: ['monthData', currentKey] });
+      const previousData = queryClient.getQueryData(['monthData', currentKey]);
+      
+      queryClient.setQueryData(['monthData', currentKey], (old: any) => ({
+        ...old,
+        incomeSources: old.incomeSources.map((item: IncomeSource) =>
+          item.id === id ? { ...item, ...updates } : item
+        ),
+      }));
+      
+      return { previousData };
+    },
+    onError: (err, variables, context: any) => {
+      queryClient.setQueryData(['monthData', currentKey], context.previousData);
+      showError('Failed to update income source');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['monthData', currentKey] });
+    },
+  });
+
+  const updateSavingMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<Saving> }) => 
+      api.savings.update(id, updates),
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: ['monthData', currentKey] });
+      const previousData = queryClient.getQueryData(['monthData', currentKey]);
+      
+      queryClient.setQueryData(['monthData', currentKey], (old: any) => ({
+        ...old,
+        savingList: old.savingList.map((item: Saving) =>
+          item.id === id ? { ...item, ...updates } : item
+        ),
+      }));
+      
+      return { previousData };
+    },
+    onError: (err, variables, context: any) => {
+      queryClient.setQueryData(['monthData', currentKey], context.previousData);
+      showError('Failed to update saving');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['monthData', currentKey] });
+    },
+  });
+
   // Calculations
   const totalIncome = data.incomeSources.reduce((sum: number, item: IncomeSource) => sum + item.amount, 0);
+  const totalPlannedSavings = data.savingList.reduce((sum: number, item: Saving) => sum + item.amount, 0);
+  const availableToSpend = totalIncome - totalPlannedSavings;
   const totalBudgetedExpenses = data.budgetingList.reduce((sum: number, item: BudgetItem) => sum + item.allocation, 0);
   const totalSpending = data.budgetingList.reduce((sum: number, item: BudgetItem) => sum + item.realization, 0);
-  const savings = totalIncome - totalSpending;
+  const remainingMoney = availableToSpend - totalSpending;
 
   // Handlers
   const handleAddIncome = () => {
@@ -262,6 +370,49 @@ const Index = () => {
     }
   };
 
+  const handleEditAllocation = () => {
+    if (selectedBudgetId && newAllocation) {
+      const updatedData = {
+        ...data,
+        budgetingList: data.budgetingList.map((item: BudgetItem) =>
+          item.id === selectedBudgetId
+            ? { ...item, allocation: parseInt(newAllocation) }
+            : item
+        )
+      };
+
+      saveDataMutation.mutate(updatedData);
+
+      setNewAllocation('');
+      setSelectedBudgetId(null);
+      setIsEditAllocationOpen(false);
+    } else {
+      showError(t('requiredFields'));
+    }
+  };
+
+  const handleChangeCategory = (newCategory: string) => {
+    if (selectedBudgetId) {
+      const updatedData = {
+        ...data,
+        budgetingList: data.budgetingList.map((item: BudgetItem) =>
+          item.id === selectedBudgetId
+            ? { ...item, category: newCategory }
+            : item
+        )
+      };
+      saveDataMutation.mutate(updatedData);
+      showSuccess(t('categoryUpdated'));
+      setIsChangeCategoryOpen(false);
+      setSelectedBudgetId(null);
+    }
+  };
+
+  const openChangeCategory = (id: string) => {
+    setSelectedBudgetId(id);
+    setIsChangeCategoryOpen(true);
+  };
+
   const handleDeleteItem = (type: 'income' | 'saving' | 'budget', id: string) => {
     let updatedData;
 
@@ -297,6 +448,12 @@ const Index = () => {
     setSelectedBudgetId(id);
     setNewRealization(currentRealization.toString());
     setIsEditRealizationOpen(true);
+  };
+
+  const openEditAllocation = (id: string, currentAllocation: number) => {
+    setSelectedBudgetId(id);
+    setNewAllocation(currentAllocation.toString());
+    setIsEditAllocationOpen(true);
   };
 
   const handleCopyFromPreviousMonth = async () => {
@@ -393,7 +550,10 @@ const Index = () => {
     let errorCount = 0;
 
     lines.forEach(line => {
-      const parts = line.split('\t');
+      // Support both tab and comma separators
+      const separator = line.includes('\t') ? '\t' : ',';
+      const parts = line.split(separator);
+      
       if (parts.length >= 2) {
         const name = parts[0].trim();
         const allocation = parseInt(parts[1].replace(/[^0-9]/g, ''));
@@ -451,6 +611,43 @@ const Index = () => {
     navigate('/login');
   };
 
+  const handleSort = (key: keyof BudgetItem) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedBudgetingList = React.useMemo(() => {
+    let sortableItems = [...data.budgetingList];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        // Handle string comparison for name and category
+        if (sortConfig.key === 'name' || sortConfig.key === 'category') {
+           const valA = (a[sortConfig.key] || '').toLowerCase();
+           const valB = (b[sortConfig.key] || '').toLowerCase();
+           if (valA < valB) {
+             return sortConfig.direction === 'asc' ? -1 : 1;
+           }
+           if (valA > valB) {
+             return sortConfig.direction === 'asc' ? 1 : -1;
+           }
+           return 0;
+        }
+        // Handle number comparison
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [data.budgetingList, sortConfig]);
+
   const selectedBudget = data.budgetingList.find((item: BudgetItem) => item.id === selectedBudgetId);
 
   // Derived color classes for each panel
@@ -471,19 +668,19 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t('appName')}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">{t('appName')}</h1>
             {isDataLoading && <Loader2 className="h-4 w-4 animate-spin text-gray-500" />}
           </div>
 
           <div className="flex items-center gap-4 mt-4 md:mt-0">
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-gray-700">{t('year')}:</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('year')}:</span>
                 <Input
                   type="number"
                   value={currentYear}
@@ -493,7 +690,7 @@ const Index = () => {
               </div>
 
               <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-gray-700">{t('month')}:</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('month')}:</span>
                 <Select value={currentMonth} onValueChange={handleMonthChange}>
                   <SelectTrigger className="w-32 h-8 text-sm">
                     <SelectValue />
@@ -507,6 +704,7 @@ const Index = () => {
               </div>
             </div>
 
+            <ThemeToggle />
             <Link to="/settings">
               <Button variant="outline" size="sm">
                 <Settings className="h-4 w-4 mr-1" />
@@ -521,14 +719,14 @@ const Index = () => {
         </div>
 
         {/* Monthly Report */}
-        <Card className="mb-6 bg-green-50 border-green-200"> {/* This outer card's color is hardcoded, not part of the dynamic color settings */}
+        <Card className="mb-6 bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-800 dark:to-gray-900 border-green-200 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="text-green-800 flex items-center gap-2">
+            <CardTitle className="text-green-800 dark:text-green-400 flex items-center gap-2">
               <span>{t('monthlyReport')}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <Card className={`${incomeColors.bgColor} ${incomeColors.borderColor} border`}>
                 <CardContent className="p-4">
                   <div className={`text-sm font-medium ${incomeColors.textColor}`}>{t('totalIncome')}</div>
@@ -536,10 +734,19 @@ const Index = () => {
                 </CardContent>
               </Card>
 
-              <Card className={`${budgetedColors.bgColor} ${budgetedColors.borderColor} border`}>
+              <Card className={`${savingsColors.bgColor} ${savingsColors.borderColor} border`}>
                 <CardContent className="p-4">
-                  <div className={`text-sm font-medium ${budgetedColors.textColor}`}>{t('budgetedExpenses')}</div>
-                  <div className={`text-xl font-bold ${budgetedColors.textColor}`}>{formatCurrency(totalBudgetedExpenses)}</div>
+                  <div className={`text-sm font-medium ${savingsColors.textColor}`}>Planned Savings</div>
+                  <div className={`text-xl font-bold ${savingsColors.textColor}`}>{formatCurrency(totalPlannedSavings)}</div>
+                  <div className="text-xs mt-1 opacity-75">Investment, Gold, etc.</div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-purple-200 border-purple-300 border dark:bg-purple-900 dark:border-purple-700">
+                <CardContent className="p-4">
+                  <div className="text-sm font-medium text-purple-800 dark:text-purple-200">Available to Spend</div>
+                  <div className="text-xl font-bold text-purple-800 dark:text-purple-200">{formatCurrency(availableToSpend)}</div>
+                  <div className="text-xs mt-1 opacity-75">Income - Savings</div>
                 </CardContent>
               </Card>
 
@@ -550,10 +757,15 @@ const Index = () => {
                 </CardContent>
               </Card>
 
-              <Card className={`${savingsColors.bgColor} ${savingsColors.borderColor} border`}>
+              <Card className={`${remainingMoney >= 0 ? 'bg-emerald-200 border-emerald-300 dark:bg-emerald-900 dark:border-emerald-700' : 'bg-red-200 border-red-300 dark:bg-red-900 dark:border-red-700'} border`}>
                 <CardContent className="p-4">
-                  <div className={`text-sm font-medium ${savingsColors.textColor}`}>{t('savings', { month: currentMonth })}</div>
-                  <div className={`text-xl font-bold ${savingsColors.textColor}`}>{formatCurrency(savings)}</div>
+                  <div className={`text-sm font-medium ${remainingMoney >= 0 ? 'text-emerald-800 dark:text-emerald-200' : 'text-red-800 dark:text-red-200'}`}>
+                    {remainingMoney >= 0 ? 'Remaining' : 'Over Budget'}
+                  </div>
+                  <div className={`text-xl font-bold ${remainingMoney >= 0 ? 'text-emerald-800 dark:text-emerald-200' : 'text-red-800 dark:text-red-200'}`}>
+                    {formatCurrency(Math.abs(remainingMoney))}
+                  </div>
+                  <div className="text-xs mt-1 opacity-75">Available - Spent</div>
                 </CardContent>
               </Card>
             </div>
@@ -561,14 +773,14 @@ const Index = () => {
         </Card>
 
         {/* Data Management - Copy from Previous Month */}
-        <Card className="mb-6 border-blue-200 bg-blue-50">
+        <Card className="mb-6 border-blue-200 bg-blue-50 dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="text-blue-800">{t('dataManagement')}</CardTitle>
+            <CardTitle className="text-blue-800 dark:text-blue-300">{t('dataManagement')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4">
               <div className="space-y-4 flex-1 min-w-[200px]">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   {t('copyPrevMonthDesc')}
                 </p>
                 <Button onClick={handleCopyFromPreviousMonth} className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
@@ -662,8 +874,30 @@ const Index = () => {
                     <TableBody>
                       {data.incomeSources.map((income: IncomeSource) => (
                         <TableRow key={income.id}>
-                          <TableCell className="font-medium">{income.name}</TableCell>
-                          <TableCell>{formatCurrency(income.amount)}</TableCell>
+                          <TableCell className="font-medium">
+                            <EditableTextField
+                              value={income.name}
+                              onSave={async (value) => {
+                                await updateIncomeSourceMutation.mutateAsync({
+                                  id: income.id,
+                                  updates: { name: value }
+                                });
+                              }}
+                              placeholder="Income name"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <EditableCell
+                              value={income.amount}
+                              onSave={async (value) => {
+                                await updateIncomeSourceMutation.mutateAsync({
+                                  id: income.id,
+                                  updates: { amount: value }
+                                });
+                              }}
+                              type="currency"
+                            />
+                          </TableCell>
                           <TableCell>
                             <Button
                               variant="ghost"
@@ -736,8 +970,30 @@ const Index = () => {
                     <TableBody>
                       {data.savingList.map((saving: Saving) => (
                         <TableRow key={saving.id}>
-                          <TableCell className="font-medium">{saving.name}</TableCell>
-                          <TableCell>{formatCurrency(saving.amount)}</TableCell>
+                          <TableCell className="font-medium">
+                            <EditableTextField
+                              value={saving.name}
+                              onSave={async (value) => {
+                                await updateSavingMutation.mutateAsync({
+                                  id: saving.id,
+                                  updates: { name: value }
+                                });
+                              }}
+                              placeholder="Saving name"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <EditableCell
+                              value={saving.amount}
+                              onSave={async (value) => {
+                                await updateSavingMutation.mutateAsync({
+                                  id: saving.id,
+                                  updates: { amount: value }
+                                });
+                              }}
+                              type="currency"
+                            />
+                          </TableCell>
                           <TableCell>
                             <Button
                               variant="ghost"
@@ -774,13 +1030,14 @@ const Index = () => {
                         <DialogTitle>Bulk Add Expenses</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
-                        <p className="text-sm text-gray-500">
-                          Paste your expense data from Excel here. Each line should contain <strong>Name</strong>, <strong>Allocation</strong> (number), and <strong>Category</strong> (optional), separated by tabs.
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Enter your expense data here. Each line should contain <strong>Name</strong>, <strong>Allocation</strong> (number), and <strong>Category</strong> (optional).<br/>
+                          <span className="text-xs">You can separate with commas (,) or tabs - or paste from Excel!</span>
                         </p>
                         <Textarea
                           value={bulkAddText}
                           onChange={(e) => setBulkAddText(e.target.value)}
-                          placeholder={`Contoh:\nBelanja Bulanan\t2000000\tRumah\nListrik\t500000\tRumah\nPulsa\t100000\tKeluarga`}
+                          placeholder={`Examples:\nListrik, 500000, Rumah\nPulsa, 100000, Keluarga\nBelanja Bulanan, 2000000, Rumah`}
                           className="h-[300px] font-mono text-sm"
                         />
                         <Button onClick={handleBulkAdd} className="w-full">Process Data</Button>
@@ -866,29 +1123,88 @@ const Index = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>{t('name')}</TableHead>
-                        <TableHead>{t('category')}</TableHead>
-                        <TableHead className="text-right">{t('allocation')}</TableHead>
-                        <TableHead className="text-right">{t('realization')}</TableHead>
+                        <TableHead className="cursor-pointer hover:bg-gray-100" onClick={() => handleSort('name')}>
+                          <div className="flex items-center">
+                            {t('name')}
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                          </div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer hover:bg-gray-100" onClick={() => handleSort('category')}>
+                          <div className="flex items-center">
+                            {t('category')}
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                          </div>
+                        </TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('allocation')}>
+                          <div className="flex items-center justify-end">
+                            {t('allocation')}
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                          </div>
+                        </TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-gray-100" onClick={() => handleSort('realization')}>
+                          <div className="flex items-center justify-end">
+                            {t('realization')}
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                          </div>
+                        </TableHead>
                         <TableHead>{t('budgetUsage')}</TableHead>
                         <TableHead className="text-right">{t('usagePercent')}</TableHead>
                         <TableHead className="w-24">{t('actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.budgetingList.map((budget: BudgetItem) => {
+                      {sortedBudgetingList.map((budget: BudgetItem) => {
                         const percentage = budget.allocation > 0
                           ? Math.min(100, Math.round((budget.realization / budget.allocation) * 10000) / 100)
                           : 0;
 
                         return (
                           <TableRow key={budget.id}>
-                            <TableCell className="font-medium">{budget.name}</TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">{budget.category}</Badge>
+                            <TableCell className="font-medium">
+                              <EditableTextField
+                                value={budget.name}
+                                onSave={async (value) => {
+                                  await updateBudgetItemMutation.mutateAsync({
+                                    id: budget.id,
+                                    updates: { name: value }
+                                  });
+                                }}
+                                placeholder="Budget name"
+                              />
                             </TableCell>
-                            <TableCell className="text-right">{formatCurrency(budget.allocation)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(budget.realization)}</TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant="secondary" 
+                                className={`cursor-pointer ${getDefaultCategoryColor(budget.category)}`}
+                                onClick={() => openChangeCategory(budget.id)}
+                              >
+                                {budget.category}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <EditableCell
+                                value={budget.allocation}
+                                onSave={async (value) => {
+                                  await updateBudgetItemMutation.mutateAsync({
+                                    id: budget.id,
+                                    updates: { allocation: value }
+                                  });
+                                }}
+                                type="currency"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <EditableCell
+                                value={budget.realization}
+                                onSave={async (value) => {
+                                  await updateBudgetItemMutation.mutateAsync({
+                                    id: budget.id,
+                                    updates: { realization: value }
+                                  });
+                                }}
+                                type="currency"
+                              />
+                            </TableCell>
                             <TableCell>
                               <Progress
                                 value={Math.min(100, percentage)}
@@ -901,22 +1217,29 @@ const Index = () => {
                               </span>
                             </TableCell>
                             <TableCell>
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => openEditRealization(budget.id, budget.realization)}
-                                >
-                                  <Edit3 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteItem('budget', budget.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-500" />
-                                </Button>
-                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <span className="sr-only">Open menu</span>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => openEditRealization(budget.id, budget.realization)}>
+                                    <Edit3 className="mr-2 h-4 w-4" />
+                                    {t('editRealization')}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => openEditAllocation(budget.id, budget.allocation)}>
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    {t('editAllocation')}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleDeleteItem('budget', budget.id)} className="text-red-600 focus:text-red-600">
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    {t('delete')}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </TableCell>
                           </TableRow>
                         );
@@ -966,7 +1289,49 @@ const Index = () => {
           </DialogContent>
         </Dialog>
 
-        <MadeWithDyad />
+        {/* Edit Allocation Dialog */}
+        <Dialog open={isEditAllocationOpen} onOpenChange={setIsEditAllocationOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('editAllocation')}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="allocationAmount">{t('allocationAmount')}</Label>
+                <Input
+                  id="allocationAmount"
+                  type="number"
+                  value={newAllocation}
+                  onChange={(e) => setNewAllocation(e.target.value)}
+                  placeholder="e.g., 325000"
+                />
+              </div>
+              <Button onClick={handleEditAllocation} className="w-full">{t('updateAllocation')}</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isChangeCategoryOpen} onOpenChange={setIsChangeCategoryOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('category')}</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-2">
+              {globalSettings.categories.map((category: string) => (
+                <Button 
+                  key={category} 
+                  variant="outline" 
+                  onClick={() => handleChangeCategory(category)}
+                  className={`${getDefaultCategoryColor(category)} ${selectedBudget?.category === category ? "ring-2 ring-offset-2 ring-black" : "border-transparent"}`}
+                >
+                  {category}
+                </Button>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+
       </div>
     </div>
   );

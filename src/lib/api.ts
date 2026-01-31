@@ -42,6 +42,18 @@ export const api = {
         saveMonthData: (monthKey: string, data: any) => api.request(`/api/${monthKey}`, { method: 'POST', body: JSON.stringify(data) }),
     },
 
+    budgetItems: {
+        update: (id: string, updates: any) => api.request(`/api/budget-items/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
+    },
+
+    incomeSources: {
+        update: (id: string, updates: any) => api.request(`/api/income-sources/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
+    },
+
+    savings: {
+        update: (id: string, updates: any) => api.request(`/api/savings/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
+    },
+
     settings: {
         getGlobal: () => api.request('/api/settings/global'),
         saveGlobal: (data: any) => api.request('/api/settings/global', { method: 'POST', body: JSON.stringify(data) }),
