@@ -122,16 +122,26 @@ const Settings = () => {
     updateSettings(updatedSettings);
   };
 
-  const colorOptions = [
-    "green-100", "green-200", "green-300", "green-400", "green-500", "green-600", "green-700", "green-800", "green-900",
-    "orange-100", "orange-200", "orange-300", "orange-400", "orange-500", "orange-600", "orange-700", "orange-800", "orange-900",
-    "red-100", "red-200", "red-300", "red-400", "red-500", "red-600", "red-700", "red-800", "red-900",
-    "blue-100", "blue-200", "blue-300", "blue-400", "blue-500", "blue-600", "blue-700", "blue-800", "blue-900",
-    "purple-100", "purple-200", "purple-300", "purple-400", "purple-500", "purple-600", "purple-700", "purple-800", "purple-900",
-    "yellow-100", "yellow-200", "yellow-300", "yellow-400", "yellow-500", "yellow-600", "yellow-700", "yellow-800", "yellow-900",
-    "pink-100", "pink-200", "pink-300", "pink-400", "pink-500", "pink-600", "pink-700", "pink-800", "pink-900",
-    "teal-100", "teal-200", "teal-300", "teal-400", "teal-500", "teal-600", "teal-700", "teal-800", "teal-900",
+  // Simple color palette with actual color names
+  const colorPalette = [
+    { value: 'green-100', name: 'Green', class: 'bg-green-200' },
+    { value: 'blue-100', name: 'Blue', class: 'bg-blue-200' },
+    { value: 'orange-100', name: 'Orange', class: 'bg-orange-200' },
+    { value: 'red-100', name: 'Red', class: 'bg-red-200' },
+    { value: 'purple-100', name: 'Purple', class: 'bg-purple-200' },
+    { value: 'yellow-100', name: 'Yellow', class: 'bg-yellow-200' },
+    { value: 'pink-100', name: 'Pink', class: 'bg-pink-200' },
+    { value: 'teal-100', name: 'Teal', class: 'bg-teal-200' },
+    { value: 'indigo-100', name: 'Indigo', class: 'bg-indigo-200' },
+    { value: 'cyan-100', name: 'Cyan', class: 'bg-cyan-200' },
   ];
+
+  const colorLabels = {
+    income: 'Total Income',
+    savings: 'Planned Savings', 
+    budgeted_expenses: 'Available to Spend',
+    spending: 'Actual Spending'
+  };
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
@@ -260,35 +270,33 @@ const Settings = () => {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>{t('dashboardColors')}</CardTitle>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Choose colors for each card in Monthly Report</p>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-6">
               {Object.entries(settings.colors).map(([key, value]) => (
-                <div key={key}>
-                  <Label htmlFor={key}>{key.replace('_', ' ').toUpperCase()}</Label>
-                  <Select
-                    value={value as string}
-                    onValueChange={(newValue) => {
-                      updateSettings({
-                        ...settings,
-                        colors: { ...settings.colors, [key]: newValue }
-                      });
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {colorOptions.map(color => (
-                        <SelectItem key={color} value={color}>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-4 h-4 rounded bg-${color}`}></div>
-                            {color}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div key={key} className="space-y-2">
+                  <Label className="text-base font-semibold">{colorLabels[key as keyof typeof colorLabels]}</Label>
+                  <div className="grid grid-cols-5 gap-3">
+                    {colorPalette.map(color => (
+                      <button
+                        key={color.value}
+                        onClick={() => {
+                          updateSettings({
+                            ...settings,
+                            colors: { ...settings.colors, [key]: color.value }
+                          });
+                        }}
+                        className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${
+                          value === color.value 
+                            ? 'border-black dark:border-white ring-2 ring-offset-2 ring-black dark:ring-white' 
+                            : 'border-gray-300 dark:border-gray-600'
+                        } ${color.class}`}
+                      >
+                        <div className="text-xs font-medium text-gray-800 dark:text-gray-900">{color.name}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
