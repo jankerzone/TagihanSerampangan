@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { jwt } from 'hono/jwt';
 import { authRoutes } from './auth';
 import { dataRoutes } from './data';
+import { savingsGoalsRoutes } from './savings-goals';
 
 type Bindings = {
   DB: D1Database;
@@ -28,5 +29,6 @@ app.use('/api/*', (c, next) => {
 });
 
 app.route('/api', dataRoutes);
+app.route('/api/savings', savingsGoalsRoutes);
 
 export default app;

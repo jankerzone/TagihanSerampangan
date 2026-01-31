@@ -54,6 +54,24 @@ export const api = {
         update: (id: string, updates: any) => api.request(`/api/savings/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
     },
 
+    savingsGoals: {
+        getAll: () => api.request('/api/savings/goals'),
+        getOne: (id: string) => api.request(`/api/savings/goals/${id}`),
+        create: (data: any) => api.request('/api/savings/goals', { method: 'POST', body: JSON.stringify(data) }),
+        update: (id: string, updates: any) => api.request(`/api/savings/goals/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
+        delete: (id: string) => api.request(`/api/savings/goals/${id}`, { method: 'DELETE' }),
+        getSummary: () => api.request('/api/savings/summary'),
+    },
+
+    savingsContributions: {
+        getByMonth: (monthKey: string) => api.request(`/api/savings/contributions/${monthKey}`),
+        getByGoal: (goalId: string) => api.request(`/api/savings/goals/${goalId}/contributions`),
+        create: (data: any) => api.request('/api/savings/contributions', { method: 'POST', body: JSON.stringify(data) }),
+        update: (id: string, updates: any) => api.request(`/api/savings/contributions/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
+        delete: (id: string) => api.request(`/api/savings/contributions/${id}`, { method: 'DELETE' }),
+        getMonthTotal: (monthKey: string) => api.request(`/api/savings/contributions/${monthKey}/total`),
+    },
+
     settings: {
         getGlobal: () => api.request('/api/settings/global'),
         saveGlobal: (data: any) => api.request('/api/settings/global', { method: 'POST', body: JSON.stringify(data) }),
