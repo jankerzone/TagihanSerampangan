@@ -109,6 +109,128 @@ const getDefaultCategoryColor = (category: string) => {
   return categoryColors[category] || 'bg-gray-100 text-gray-800 hover:bg-gray-200';
 };
 
+// Savings Contributions Component
+const SavingsContributionsSection = ({ currentKey }: { currentKey: string }) => {
+  const queryClient = useQueryClient();
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newContrib, setNewContrib] = useState({ goalId: '', amount: '' });
+
+  const { data: goals } = useQuery({
+    queryKey: ['savingsGoals'],
+    queryFn: api.savingsGoals.getAll,
+    initialData: { goals: [] }
+  });
+
+  const { data: contributions } = useQuery({
+    queryKey: ['savingsContributions', currentKey],
+    queryFn: () => api.savingsContributions.getByMonth(currentKey),
+    initialData: { contributions: [] }
+  });
+
+  const addContribMutation = useMutation({
+    mutationFn: api.savingsContributions.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['savingsContributions', currentKey] });
+      queryClient.invalidateQueries({ queryKey: ['savingsGoals'] });
+      showSuccess('Contribution added!');
+      setNewContrib({ goalId: '', amount: '' });
+      setIsAddOpen(false);
+    }
+  });
+
+  const deleteContribMutation = useMutation({
+    mutationFn: api.savingsContributions.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['savingsContributions', currentKey] });
+      queryClient.invalidateQueries({ queryKey: ['savingsGoals'] });
+      showSuccess('Deleted!');
+    }
+  });
+
+  if (goals.goals.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <PiggyBank className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+        <p className="text-gray-600 dark:text-gray-400 mb-4">No savings goals yet!</p>
+        <Link to="/savings-goals">
+          <Button>Create Your First Goal</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <DialogTrigger asChild>
+          <Button size="sm" className="mb-4">
+            <PlusCircle className="h-4 w-4 mr-1" /> Add Contribution
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Monthly Contribution</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Select Goal</Label>
+              <Select value={newContrib.goalId} onValueChange={v => setNewContrib({...newContrib, goalId: v})}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a goal..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {goals.goals.map((g: any) => (
+                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Amount (Rp)</Label>
+              <Input type="number" value={newContrib.amount} onChange={e => setNewContrib({...newContrib, amount: e.target.value})} placeholder="1000000" />
+            </div>
+            <Button onClick={() => {
+              if (!newContrib.goalId || !newContrib.amount) return;
+              addContribMutation.mutate({
+                savings_goal_id: newContrib.goalId,
+                month_key: currentKey,
+                amount: parseInt(newContrib.amount)
+              });
+            }} className="w-full">Add</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {contributions.contributions.length === 0 ? (
+        <p className="text-gray-500 text-center py-4">No contributions this month</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Goal</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="w-16">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {contributions.contributions.map((c: any) => (
+              <TableRow key={c.id}>
+                <TableCell className="font-medium">{c.goal_name}</TableCell>
+                <TableCell className="text-right">{formatCurrency(c.amount)}</TableCell>
+                <TableCell>
+                  <Button variant="ghost" size="sm" onClick={() => deleteContribMutation.mutate(c.id)}>
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </>
+  );
+};
+
 const Index = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -928,99 +1050,19 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            {/* Savings */}
+            {/* Monthly Savings Contributions */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>{t('savingsTitle')}</CardTitle>
-                <Dialog open={isAddSavingOpen} onOpenChange={setIsAddSavingOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" variant="outline">
-                      <PlusCircle className="h-4 w-4 mr-1" />
-                      {t('add')}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>{t('addSaving')}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="savingName">{t('name')}</Label>
-                        <Input
-                          id="savingName"
-                          value={newSaving.name}
-                          onChange={(e) => setNewSaving({ ...newSaving, name: e.target.value })}
-                          placeholder="e.g., Dana Darurat"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="savingAmount">{t('amount')} (Rp)</Label>
-                        <Input
-                          id="savingAmount"
-                          type="number"
-                          value={newSaving.amount}
-                          onChange={(e) => setNewSaving({ ...newSaving, amount: e.target.value })}
-                          placeholder="e.g., 2000000"
-                        />
-                      </div>
-                      <Button onClick={handleAddSaving} className="w-full">{t('addSaving')}</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                <CardTitle>Monthly Savings</CardTitle>
+                <Link to="/savings-goals">
+                  <Button size="sm" variant="outline">
+                    <PiggyBank className="h-4 w-4 mr-1" />
+                    Manage Goals
+                  </Button>
+                </Link>
               </CardHeader>
               <CardContent>
-                {data.savingList.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">{t('noSavings')}</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('name')}</TableHead>
-                        <TableHead>{t('amount')}</TableHead>
-                        <TableHead className="w-16">{t('actions')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.savingList.map((saving: Saving) => (
-                        <TableRow key={saving.id}>
-                          <TableCell className="font-medium">
-                            <EditableTextField
-                              value={saving.name}
-                              onSave={async (value) => {
-                                await updateSavingMutation.mutateAsync({
-                                  id: saving.id,
-                                  updates: { name: value }
-                                });
-                              }}
-                              placeholder="Saving name"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <EditableCell
-                              value={saving.amount}
-                              onSave={async (value) => {
-                                await updateSavingMutation.mutateAsync({
-                                  id: saving.id,
-                                  updates: { amount: value }
-                                });
-                              }}
-                              type="currency"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteItem('saving', saving.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
+                <SavingsContributionsSection currentKey={currentKey} />
               </CardContent>
             </Card>
           </div>
