@@ -33,15 +33,15 @@ app.use('/api/*', (c, next) => {
 app.route('/api', dataRoutes);
 app.route('/api/savings', savingsGoalsRoutes);
 
-// Telegram bot routes
-app.route('/telegram', telegramRoutes);
-
-// Protected telegram endpoint (requires JWT)
+// Protected telegram endpoint (requires JWT) - MUST be before mounting routes
 app.use('/telegram/generate-link-code', (c, next) => {
   const jwtMiddleware = jwt({
     secret: c.env.JWT_SECRET || 'fallback_secret_for_dev',
   });
   return jwtMiddleware(c, next);
 });
+
+// Telegram bot routes (webhook and setup are public)
+app.route('/telegram', telegramRoutes);
 
 export default app;
