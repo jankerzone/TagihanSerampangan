@@ -23,6 +23,9 @@ const Settings = () => {
   const [newCategory, setNewCategory] = useState('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editCategoryValue, setEditCategoryValue] = useState('');
+  const [telegramCode, setTelegramCode] = useState<string | null>(null);
+  const [codeExpiresAt, setCodeExpiresAt] = useState<string | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number>(0);
 
   // Fetch Global Settings
   const { data: settings, isLoading } = useQuery({
@@ -53,6 +56,42 @@ const Settings = () => {
       showError(error.message || "Failed to save settings");
     }
   });
+
+  // Mutation to generate Telegram link code
+  const generateCodeMutation = useMutation({
+    mutationFn: api.telegram.generateLinkCode,
+    onSuccess: (data: any) => {
+      setTelegramCode(data.code);
+      setCodeExpiresAt(data.expires_at);
+      showSuccess('Link code generated!');
+    },
+    onError: (error: any) => {
+      showError(error.message || 'Failed to generate code');
+    }
+  });
+
+  // Countdown timer for code expiration
+  useEffect(() => {
+    if (!codeExpiresAt) {
+      setTimeRemaining(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const expiry = new Date(codeExpiresAt).getTime();
+      const diff = Math.max(0, Math.floor((expiry - now) / 1000));
+      
+      setTimeRemaining(diff);
+      
+      if (diff === 0) {
+        setTelegramCode(null);
+        setCodeExpiresAt(null);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [codeExpiresAt]);
 
   // Helper to update settings
   const updateSettings = (newSettings: any) => {
@@ -263,6 +302,73 @@ const Settings = () => {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Telegram Bot Integration */}
+        <Card className="mb-6 border-blue-200 bg-blue-50 dark:bg-gray-800 dark:border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-blue-800 dark:text-blue-300">Link Telegram Bot</CardTitle>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Connect your Telegram account to track expenses on-the-go
+            </p>
+          </CardHeader>
+          <CardContent>
+            {!telegramCode ? (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  Generate a code to link your Telegram account with TagihanSerampangan bot.
+                </p>
+                <Button 
+                  onClick={() => generateCodeMutation.mutate()} 
+                  disabled={generateCodeMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {generateCodeMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Generate Link Code'
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-white dark:bg-gray-900 rounded-lg p-6 border-2 border-blue-300 dark:border-blue-600">
+                  <div className="text-center space-y-3">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Your Link Code:</div>
+                    <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 tracking-wider">
+                      {telegramCode}
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-500">
+                      Expires in: <span className="font-semibold">{Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-blue-100 dark:bg-gray-900 rounded-lg p-4 space-y-2">
+                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">How to link:</div>
+                  <ol className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-decimal list-inside">
+                    <li>Open Telegram and search for your TagihanSerampangan bot</li>
+                    <li>Send this command: <code className="bg-white dark:bg-gray-800 px-2 py-1 rounded">/link {telegramCode}</code></li>
+                    <li>Bot will confirm the link!</li>
+                  </ol>
+                </div>
+
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setTelegramCode(null);
+                    setCodeExpiresAt(null);
+                  }}
+                  className="w-full"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 

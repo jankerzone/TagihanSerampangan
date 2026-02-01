@@ -75,5 +75,9 @@ export const api = {
     settings: {
         getGlobal: () => api.request('/api/settings/global'),
         saveGlobal: (data: any) => api.request('/api/settings/global', { method: 'POST', body: JSON.stringify(data) }),
+    },
+
+    telegram: {
+        generateLinkCode: () => api.request('/telegram/generate-link-code', { method: 'POST' }),
     }
 };
