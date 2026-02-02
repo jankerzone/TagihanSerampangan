@@ -160,7 +160,7 @@ async function editMessageText(botToken: string, chatId: number, messageId: numb
 
 async function getUserByTelegramId(db: D1Database, telegramUserId: string) {
   const result = await db.prepare(
-    'SELECT id, email, telegram_user_id FROM users WHERE telegram_user_id = ?'
+    'SELECT id, username, telegram_user_id FROM users WHERE telegram_user_id = ?'
   ).bind(telegramUserId).first();
   
   return result;
@@ -193,10 +193,10 @@ async function linkTelegramAccount(db: D1Database, code: string, telegramUserId:
   // Delete code
   await db.prepare('DELETE FROM telegram_link_codes WHERE code = ?').bind(code).run();
   
-  // Get user email
-  const user = await db.prepare('SELECT email FROM users WHERE id = ?').bind(userId).first();
+  // Get user username
+  const user = await db.prepare('SELECT username FROM users WHERE id = ?').bind(userId).first();
   
-  return { success: true, email: user?.email };
+  return { success: true, email: user?.username };
 }
 
 async function unlinkTelegramAccount(db: D1Database, telegramUserId: string) {
@@ -484,7 +484,7 @@ telegramRoutes.post('/webhook', async (c) => {
         const stats = await getMonthlyTotal(db, user.id as number, currentMonth.monthKey);
         
         await sendMessage(botToken, chatId, 
-          `📊 *Account Status*\n\nLinked to: ${user.email}\n\n*${currentMonth.displayName} Stats:*\n• Expenses: ${stats.count}\n• Total: Rp ${stats.total.toLocaleString('id-ID')}`
+          `📊 *Account Status*\n\nLinked to: ${user.username}\n\n*${currentMonth.displayName} Stats:*\n• Expenses: ${stats.count}\n• Total: Rp ${stats.total.toLocaleString('id-ID')}`
         );
       } else {
         await sendMessage(botToken, chatId, 
