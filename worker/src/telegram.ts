@@ -266,12 +266,17 @@ function getMonthOptions() {
   return months;
 }
 
-function createMonthKeyboard() {
+function createMonthKeyboard(parsed: ParsedExpense) {
   const months = getMonthOptions();
   
+  // Encode expense data in callback_data (max 64 bytes)
+  // Format: month_MONTHKEY_AMOUNT_DESC_CAT
   return {
     inline_keyboard: [
-      months.map(m => ({ text: m.displayName, callback_data: `month_${m.monthKey}` }))
+      months.map(m => ({ 
+        text: m.displayName, 
+        callback_data: `m_${m.monthKey}_${parsed.amount}_${encodeURIComponent(parsed.description.substring(0, 15))}_${parsed.category}`
+      }))
     ]
   };
 }
@@ -333,27 +338,6 @@ function formatSaveConfirmation(
 }
 
 // ============================================================================
-// PENDING EXPENSES (State Management)
-// ============================================================================
-
-// Simple in-memory storage for pending expenses
-// For production, consider using Durable Objects or KV
-const pendingExpenses = new Map<string, { parsed: ParsedExpense; messageId: number }>();
-
-function storePendingExpense(chatId: number, messageId: number, parsed: ParsedExpense) {
-  const key = `${chatId}_${messageId}`;
-  pendingExpenses.set(key, { parsed, messageId });
-  
-  // Auto-cleanup after 10 minutes
-  setTimeout(() => pendingExpenses.delete(key), 10 * 60 * 1000);
-}
-
-function getPendingExpense(chatId: number, messageId: number) {
-  const key = `${chatId}_${messageId}`;
-  return pendingExpenses.get(key);
-}
-
-// ============================================================================
 // ROUTER
 // ============================================================================
 
@@ -385,18 +369,29 @@ telegramRoutes.post('/webhook', async (c) => {
         return c.json({ ok: true });
       }
       
-      // Parse callback data (format: "month_2026-February")
-      if (query.data?.startsWith('month_')) {
-        const monthKey = query.data.replace('month_', '');
-        const pending = getPendingExpense(chatId, messageId);
-        
-        if (!pending) {
-          await answerCallbackQuery(botToken, query.id, '❌ Expired, please send again');
+      // Parse callback data (format: "m_2026-February_30000_beras_Food")
+      if (query.data?.startsWith('m_')) {
+        const parts = query.data.split('_');
+        if (parts.length < 5) {
+          await answerCallbackQuery(botToken, query.id, '❌ Invalid data');
           return c.json({ ok: true });
         }
         
+        const monthKey = parts[1];
+        const amount = parseInt(parts[2]);
+        const description = decodeURIComponent(parts[3]);
+        const category = parts[4];
+        
+        const parsed: ParsedExpense = {
+          raw: description,
+          description,
+          amount,
+          category,
+          confidence: 0.8
+        };
+        
         // Save expense
-        await saveDailyExpense(db, user.id as number, monthKey, pending.parsed, pending.messageId);
+        await saveDailyExpense(db, user.id as number, monthKey, parsed, messageId);
         
         // Get monthly total
         const monthTotal = await getMonthlyTotal(db, user.id as number, monthKey);
@@ -406,7 +401,7 @@ telegramRoutes.post('/webhook', async (c) => {
           botToken,
           chatId,
           messageId,
-          formatSaveConfirmation(pending.parsed, monthKey, monthTotal)
+          formatSaveConfirmation(parsed, monthKey, monthTotal)
         );
         
         await answerCallbackQuery(botToken, query.id, '✅ Saved!');
@@ -513,15 +508,12 @@ telegramRoutes.post('/webhook', async (c) => {
       return c.json({ ok: true });
     }
     
-    // Store pending expense
-    storePendingExpense(chatId, message.message_id, parsed);
-    
-    // Send month selection
+    // Send month selection (expense data encoded in buttons)
     await sendMessage(
       botToken,
       chatId,
       formatExpensePreview(parsed),
-      { reply_markup: createMonthKeyboard() }
+      { reply_markup: createMonthKeyboard(parsed) }
     );
     
     return c.json({ ok: true });
