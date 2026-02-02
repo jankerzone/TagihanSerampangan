@@ -566,11 +566,11 @@ telegramRoutes.post('/generate-link-code', async (c) => {
   try {
     // Get user from JWT payload
     const payload = c.get('jwtPayload');
-    if (!payload || !payload.userId) {
+    if (!payload || !payload.id) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
     
-    const userId = payload.userId;
+    const userId = payload.id;
     const db = c.env.DB;
     
     // Generate 6-character code
