@@ -24,3 +24,10 @@ dist-ssr
 *.sw?
 .env.production
 .env*
+
+# Internal development files
+TELEGRAM_BOT_SESSION.md
+AI_RULES.md
+test-*.html
+*.bak
+*.bak2
