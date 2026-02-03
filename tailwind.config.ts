@@ -93,4 +93,10 @@ export default {
     },
   },
   plugins: [require("tailwindcss-animate")],
+  safelist: [
+    {
+      pattern: /(bg|text|border|from|to)-(green|blue|orange|red|purple|yellow|pink|teal|indigo|cyan|emerald|sky|amber|rose|fuchsia|violet|lime|slate|gray|zinc|neutral|stone)-[0-9]+/,
+      variants: ["hover", "dark", "dark:hover"],
+    },
+  ],
 } satisfies Config;

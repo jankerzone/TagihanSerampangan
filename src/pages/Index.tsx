@@ -718,9 +718,9 @@ const Index = () => {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
               <img 
-                src="/tagihanserampangan-removebg-preview.png" 
+                src="/android-chrome-192x192.png" 
                 alt="TagihanSerampangan Logo" 
-                className="h-10 w-10 object-contain"
+                className="h-10 w-10 object-contain rounded-full"
               />
               <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 hidden sm:block">
                 TagihanSerampangan <span className="text-gray-300 dark:text-gray-600 font-normal ml-1">|</span> <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">Money Management</span>
