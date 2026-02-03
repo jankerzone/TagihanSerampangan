@@ -176,7 +176,7 @@ const Settings = () => {
     income: 'Total Income',
     savings: 'Planned Savings', 
     budgeted_expenses: 'Available to Spend',
-    spending: 'Actual Spending'
+    spending: 'Total Spending'
   };
 
   if (isLoading) {
