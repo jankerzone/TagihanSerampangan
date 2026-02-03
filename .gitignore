@@ -31,3 +31,5 @@ AI_RULES.md
 test-*.html
 *.bak
 *.bak2
+.vite/
+worker/.wrangler/tmp/
