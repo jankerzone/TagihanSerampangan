@@ -41,6 +41,13 @@ app.use('/telegram/generate-link-code', (c, next) => {
   return jwtMiddleware(c, next);
 });
 
+app.use('/telegram/unlink-account', (c, next) => {
+  const jwtMiddleware = jwt({
+    secret: c.env.JWT_SECRET || 'fallback_secret_for_dev',
+  });
+  return jwtMiddleware(c, next);
+});
+
 // Telegram bot routes (webhook and setup are public)
 app.route('/telegram', telegramRoutes);
 

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { sign } from 'hono/jwt';
+import { sign, jwt } from 'hono/jwt';
 import * as bcrypt from 'bcryptjs';
 
 type Bindings = {
@@ -8,6 +8,43 @@ type Bindings = {
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
+
+app.get('/me', async (c, next) => {
+    const jwtMiddleware = jwt({
+        secret: c.env.JWT_SECRET || 'fallback_secret_for_dev',
+    });
+    return jwtMiddleware(c, next);
+}, async (c) => {
+    const payload = c.get('jwtPayload');
+    if (!payload || !payload.id) {
+        return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const user = await c.env.DB.prepare(
+        'SELECT id, username FROM users WHERE id = ?'
+    )
+        .bind(payload.id)
+        .first<any>();
+
+    if (!user) {
+        return c.json({ error: 'User not found' }, 404);
+    }
+
+    // Fetch linked devices
+    const linkedDevices = await c.env.DB.prepare(
+        'SELECT id, telegram_user_id, telegram_username, first_name, created_at FROM linked_devices WHERE user_id = ?'
+    )
+        .bind(user.id)
+        .all();
+
+    return c.json({
+        user: {
+            id: user.id,
+            username: user.username,
+            linkedDevices: linkedDevices.results || []
+        }
+    });
+});
 
 app.post('/register', async (c) => {
     const { username, password } = await c.req.json();
@@ -66,7 +103,21 @@ app.post('/login', async (c) => {
         c.env.JWT_SECRET || 'fallback_secret_for_dev'
     );
 
-    return c.json({ token, user: { id: user.id, username: user.username } });
+    // Fetch linked devices
+    const linkedDevices = await c.env.DB.prepare(
+        'SELECT id, telegram_user_id, telegram_username, first_name, created_at FROM linked_devices WHERE user_id = ?'
+    )
+        .bind(user.id)
+        .all();
+
+    return c.json({
+        token,
+        user: {
+            id: user.id,
+            username: user.username,
+            linkedDevices: linkedDevices.results || []
+        }
+    });
 });
 
 export const authRoutes = app;

@@ -7,7 +7,8 @@ import {
   User,
   Download,
   Upload,
-  Copy as CopyIcon
+  Copy as CopyIcon,
+  Receipt
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -53,6 +54,12 @@ export function UserNav({ onLogout, onExport, onImport, onCopyPreviousMonth }: U
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
+          <Link to="/expenses">
+            <DropdownMenuItem className="cursor-pointer">
+              <Receipt className="mr-2 h-4 w-4 text-blue-600" />
+              <span>Daily Expenses</span>
+            </DropdownMenuItem>
+          </Link>
           <Link to="/savings-goals">
             <DropdownMenuItem className="cursor-pointer">
               <PiggyBank className="mr-2 h-4 w-4 text-emerald-600" />

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, Trash2, Edit, Check, X, Loader2, Copy } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit, Check, X, Loader2, Copy, Unlink, Smartphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   monthNames,
@@ -13,9 +13,17 @@ import {
 import { showSuccess, showError } from "@/utils/toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 const Settings = () => {
   const queryClient = useQueryClient();
+  const { currentUser, updateUser, refreshUser } = useAuth();
+
+  useEffect(() => {
+    refreshUser();
+  }, [refreshUser]);
 
   const [newCategory, setNewCategory] = useState('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
@@ -64,6 +72,18 @@ const Settings = () => {
     },
     onError: (error: any) => {
       showError(error.message || 'Failed to generate code');
+    }
+  });
+
+  // Mutation to unlink Telegram account
+  const unlinkTelegramMutation = useMutation({
+    mutationFn: (telegramId: number) => api.telegram.unlinkAccount(telegramId),
+    onSuccess: () => {
+      refreshUser(); // Refresh user data to update the list
+      showSuccess('Device unlinked!');
+    },
+    onError: (error: any) => {
+      showError(error.message || 'Failed to unlink account');
     }
   });
 
@@ -279,10 +299,57 @@ const Settings = () => {
             </p>
           </CardHeader>
           <CardContent>
+            {/* Linked Devices List */}
+            {currentUser?.linkedDevices && currentUser.linkedDevices.length > 0 && (
+              <div className="mb-6 bg-white dark:bg-gray-900 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Telegram ID</TableHead>
+                      <TableHead>Linked Date</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {currentUser.linkedDevices.map((device) => (
+                      <TableRow key={device.id}>
+                        <TableCell>
+                          <div className="font-medium">{device.first_name || 'Unknown'}</div>
+                          {device.telegram_username && (
+                            <div className="text-xs text-gray-500">@{device.telegram_username}</div>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{device.telegram_user_id}</TableCell>
+                        <TableCell className="text-xs text-gray-500">
+                          {new Date(device.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to unlink this device?')) {
+                                unlinkTelegramMutation.mutate(device.id);
+                              }
+                            }}
+                            disabled={unlinkTelegramMutation.isPending}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                             <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
             {!telegramCode ? (
               <div className="space-y-4">
                 <p className="text-sm text-gray-700 dark:text-gray-300">
-                  Generate a code to link your Telegram account with TagihanSerampangan bot.
+                  Generate a code to link a new Telegram account. You can link multiple accounts.
                 </p>
                 <Button 
                   onClick={() => generateCodeMutation.mutate()} 
@@ -295,7 +362,10 @@ const Settings = () => {
                       Generating...
                     </>
                   ) : (
-                    'Generate Link Code'
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Generate Link Code
+                    </>
                   )}
                 </Button>
               </div>

@@ -159,14 +159,18 @@ async function editMessageText(botToken: string, chatId: number, messageId: numb
 // ============================================================================
 
 async function getUserByTelegramId(db: D1Database, telegramUserId: string) {
+  // Join users table with linked_devices table
   const result = await db.prepare(
-    'SELECT id, username, telegram_user_id FROM users WHERE telegram_user_id = ?'
+    `SELECT u.id, u.username, ld.telegram_user_id 
+     FROM users u 
+     JOIN linked_devices ld ON u.id = ld.user_id 
+     WHERE ld.telegram_user_id = ?`
   ).bind(telegramUserId).first();
   
   return result;
 }
 
-async function linkTelegramAccount(db: D1Database, code: string, telegramUserId: string) {
+async function linkTelegramAccount(db: D1Database, code: string, telegramUserId: string, username?: string, firstName?: string) {
   // Find code
   const codeResult = await db.prepare(
     'SELECT user_id, expires_at FROM telegram_link_codes WHERE code = ?'
@@ -184,11 +188,17 @@ async function linkTelegramAccount(db: D1Database, code: string, telegramUserId:
   }
   
   const userId = codeResult.user_id as number;
+
+  // Check if this Telegram account is already linked to ANY user (prevent duplicates)
+  const existingLink = await db.prepare('SELECT id FROM linked_devices WHERE telegram_user_id = ?').bind(telegramUserId).first();
+  if (existingLink) {
+    return { success: false, error: 'This Telegram account is already linked.' };
+  }
   
-  // Update user
+  // Insert into linked_devices
   await db.prepare(
-    'UPDATE users SET telegram_user_id = ? WHERE id = ?'
-  ).bind(telegramUserId, userId).run();
+    'INSERT INTO linked_devices (user_id, telegram_user_id, telegram_username, first_name) VALUES (?, ?, ?, ?)'
+  ).bind(userId, telegramUserId, username || null, firstName || null).run();
   
   // Delete code
   await db.prepare('DELETE FROM telegram_link_codes WHERE code = ?').bind(code).run();
@@ -201,7 +211,7 @@ async function linkTelegramAccount(db: D1Database, code: string, telegramUserId:
 
 async function unlinkTelegramAccount(db: D1Database, telegramUserId: string) {
   const result = await db.prepare(
-    'UPDATE users SET telegram_user_id = NULL WHERE telegram_user_id = ?'
+    'DELETE FROM linked_devices WHERE telegram_user_id = ?'
   ).bind(telegramUserId).run();
   
   return result.meta.changes > 0;
@@ -243,6 +253,18 @@ async function getMonthlyTotal(db: D1Database, userId: number, monthKey: string)
     count: result?.count as number || 0,
     total: result?.total as number || 0,
   };
+}
+
+async function getMonthlyExpenses(db: D1Database, userId: number, monthKey: string, limit = 20) {
+  const result = await db.prepare(
+    `SELECT date, description, amount, category 
+     FROM daily_expenses 
+     WHERE user_id = ? AND month_key = ? 
+     ORDER BY created_at DESC 
+     LIMIT ?`
+  ).bind(userId, monthKey, limit).all();
+  
+  return result.results || [];
 }
 
 // ============================================================================
@@ -302,6 +324,7 @@ Track your daily expenses easily!
 /link CODE - Link Telegram account
 /unlink - Unlink account
 /status - Show account info
+/list - List recent expenses
 /help - Show this message`;
 }
 
@@ -444,7 +467,10 @@ telegramRoutes.post('/webhook', async (c) => {
         return c.json({ ok: true });
       }
       
-      const result = await linkTelegramAccount(db, code.toUpperCase(), telegramUserId);
+      const username = message.from.username;
+      const firstName = message.from.first_name;
+
+      const result = await linkTelegramAccount(db, code.toUpperCase(), telegramUserId, username, firstName);
       
       if (result.success) {
         await sendMessage(botToken, chatId, 
@@ -487,6 +513,37 @@ telegramRoutes.post('/webhook', async (c) => {
         );
       }
       
+      return c.json({ ok: true });
+    }
+    
+    // Command: /list
+    if (text === '/list') {
+      const user = await getUserByTelegramId(db, telegramUserId);
+      if (!user) {
+        await sendMessage(botToken, chatId, '❌ Please link your account first with /link CODE');
+        return c.json({ ok: true });
+      }
+
+      const currentMonth = getMonthOptions()[0];
+      const expenses = await getMonthlyExpenses(db, user.id as number, currentMonth.monthKey);
+      const stats = await getMonthlyTotal(db, user.id as number, currentMonth.monthKey);
+      
+      if (expenses.length === 0) {
+        await sendMessage(botToken, chatId, `📋 *${currentMonth.displayName}*\n\nNo expenses recorded yet.`);
+        return c.json({ ok: true });
+      }
+
+      let message = `📋 *Expenses for ${currentMonth.displayName}*\n\n`;
+      
+      expenses.forEach((e: any) => {
+        const date = e.date.split('-').slice(1).reverse().join('/'); // MM-DD -> DD/MM
+        const amount = e.amount.toLocaleString('id-ID');
+        message += `• ${date}: ${e.description} - Rp ${amount}\n`;
+      });
+      
+      message += `\n📊 *Summary:*\n• Count: ${stats.count}\n• Total: Rp ${stats.total.toLocaleString('id-ID')}`;
+      
+      await sendMessage(botToken, chatId, message);
       return c.json({ ok: true });
     }
     
@@ -583,6 +640,34 @@ telegramRoutes.post('/generate-link-code', async (c) => {
   } catch (error) {
     console.error('Generate code error:', error);
     return c.json({ error: 'Failed to generate code' }, 500);
+  }
+});
+
+// Unlink account endpoint (requires JWT)
+telegramRoutes.post('/unlink-account', async (c) => {
+  try {
+    // Get user from JWT payload
+    const payload = c.get('jwtPayload');
+    if (!payload || !payload.id) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    
+    const { telegram_id } = await c.req.json().catch(() => ({ telegram_id: null }));
+    const userId = payload.id;
+    const db = c.env.DB;
+    
+    if (telegram_id) {
+      // Unlink specific device
+       await db.prepare('DELETE FROM linked_devices WHERE id = ? AND user_id = ?').bind(telegram_id, userId).run();
+    } else {
+      // Unlink ALL (legacy behavior or failsafe)
+      await db.prepare('DELETE FROM linked_devices WHERE user_id = ?').bind(userId).run();
+    }
+    
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Unlink account error:', error);
+    return c.json({ error: 'Failed to unlink account' }, 500);
   }
 });
 

@@ -29,10 +29,18 @@ app.get('/:monthKey', async (c) => {
         .bind(userId, monthKey)
         .all();
 
+    // Fetch daily expenses (Telegram/Manual)
+    const expenses = await c.env.DB.prepare(
+        'SELECT * FROM daily_expenses WHERE user_id = ? AND month_key = ? ORDER BY date DESC'
+    )
+        .bind(userId, monthKey)
+        .all();
+
     return c.json({
         incomeSources: incomeSources.results,
         savingList: savingList.results,
         budgetingList: budgetingList.results,
+        expenses: expenses.results || [] // Return expenses to frontend
     });
 });
 
@@ -239,6 +247,24 @@ app.patch('/savings/:id', async (c) => {
     }
 
     return c.json({ success: true, item: updatedItem });
+});
+
+// Delete individual expense
+app.delete('/expenses/:id', async (c) => {
+    const userId = c.get('jwtPayload').id;
+    const expenseId = c.req.param('id');
+
+    const result = await c.env.DB.prepare(
+        'DELETE FROM daily_expenses WHERE id = ? AND user_id = ?'
+    )
+        .bind(expenseId, userId)
+        .run();
+
+    if (result.meta.changes === 0) {
+        return c.json({ error: 'Expense not found or unauthorized' }, 404);
+    }
+
+    return c.json({ success: true });
 });
 
 export const dataRoutes = app;

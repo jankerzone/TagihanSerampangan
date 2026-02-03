@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
 import Settings from "./pages/Settings";
 import SavingsGoals from "./pages/SavingsGoals";
+import Expenses from "./pages/Expenses";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<PrivateRoute><Index /></PrivateRoute>} />
             <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+            <Route path="/expenses" element={<PrivateRoute><Expenses /></PrivateRoute>} />
             <Route path="/savings-goals" element={<PrivateRoute><SavingsGoals /></PrivateRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

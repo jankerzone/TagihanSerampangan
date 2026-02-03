@@ -33,6 +33,7 @@ export const api = {
     auth: {
         login: (data: any) => api.request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
         register: (data: any) => api.request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+        me: () => api.request('/auth/me'),
     },
 
     data: {
@@ -77,5 +78,6 @@ export const api = {
 
     telegram: {
         generateLinkCode: () => api.request('/telegram/generate-link-code', { method: 'POST' }),
+        unlinkAccount: (telegramId?: number) => api.request('/telegram/unlink-account', { method: 'POST', body: JSON.stringify({ telegram_id: telegramId }) }),
     }
 };
