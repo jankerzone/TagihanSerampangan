@@ -8,8 +8,9 @@ binding = "DB"
 database_name = "tagihan-db"
 database_id = "3e7010fb-7202-41e3-b2ba-5586e5a15c4e" # User will need to replace this after creating the DB
 
+[vars]
+CLERK_PUBLISHABLE_KEY = "pk_test_cmljaC1ib2JjYXQtNjYuY2xlcmsuYWNjb3VudHMuZGV2JA"
+
+# CLERK_SECRET_KEY should be set via: wrangler secret put CLERK_SECRET_KEY
+
 # CORS is handled in the application code (src/index.ts) using Hono's cors middleware.
-# [cors]
-# origins = ["*"] 
-# methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-# allowed_headers = ["Content-Type", "Authorization"]

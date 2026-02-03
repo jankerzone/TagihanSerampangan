@@ -40,3 +40,9 @@ worker/.dev.vars
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+
+# Claude Code local directory
+.claude/
+
+# VPS deployment directory (kribo worktrees)
+krisna/

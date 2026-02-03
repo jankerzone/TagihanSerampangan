@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
 import React from "react";
-import { 
-  LogOut, 
-  Settings, 
-  PiggyBank, 
+import { useUser } from "@clerk/clerk-react";
+import {
+  LogOut,
+  Settings,
+  PiggyBank,
   User,
   Download,
   Upload,
@@ -32,13 +33,21 @@ interface UserNavProps {
 
 export function UserNav({ onLogout, onExport, onImport, onCopyPreviousMonth }: UserNavProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { user } = useUser();
+
+  const displayName = user?.fullName || user?.primaryEmailAddress?.emailAddress || 'User';
+  const userEmail = user?.primaryEmailAddress?.emailAddress;
+  const userInitials = user?.fullName
+    ? user.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : user?.primaryEmailAddress?.emailAddress?.[0].toUpperCase() || 'U';
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-9 w-9 rounded-full ring-offset-background transition-all hover:ring-2 hover:ring-primary/20">
           <Avatar className="h-9 w-9 border border-gray-100 dark:border-gray-800">
             <AvatarFallback className="bg-blue-600 dark:bg-blue-500 text-white text-xs font-semibold">
-              <User className="h-4 w-4" />
+              {userInitials}
             </AvatarFallback>
           </Avatar>
         </Button>
@@ -46,10 +55,12 @@ export function UserNav({ onLogout, onExport, onImport, onCopyPreviousMonth }: U
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">Account</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              Manage your profile and settings
-            </p>
+            <p className="text-sm font-medium leading-none">{displayName}</p>
+            {userEmail && (
+              <p className="text-xs leading-none text-muted-foreground">
+                {userEmail}
+              </p>
+            )}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

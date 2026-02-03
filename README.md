@@ -52,7 +52,7 @@ A beautiful, modern expense tracking and budget management application with real
 - **Cloudflare Workers** - Serverless edge computing
 - **Cloudflare D1** - SQLite database at the edge
 - **Hono** - Lightweight web framework
-- **JWT Authentication** - Secure user sessions
+- **Clerk Authentication** - Modern authentication with OAuth support
 
 ### Bot Integration
 - **Telegram Bot API** - Real-time expense logging
@@ -79,12 +79,20 @@ npm install
 cd worker && npm install && cd ..
 ```
 
-3. Set up environment variables
-```bash
-# Create .env.production for frontend
-echo "VITE_API_URL=http://localhost:8787" > .env.production
+3. Set up Clerk Authentication
+- Sign up at [clerk.com](https://clerk.com)
+- Create a new application
+- Get your Publishable Key and Secret Key
 
-# Configure worker/wrangler.toml for your Cloudflare account
+4. Set up environment variables
+```bash
+# Create .env for frontend
+cat > .env << EOF
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
+VITE_API_URL=http://localhost:8787
+EOF
+
+# Configure worker/wrangler.toml with Clerk keys
 ```
 
 4. Start development server
@@ -188,11 +196,11 @@ Settings → Language → English or Bahasa Indonesia
 
 ## 🔒 Security
 
-- JWT-based authentication
-- Secure password hashing (bcrypt)
-- HTTPS-only communication
-- Environment variable protection
-- SQL injection prevention with prepared statements
+- **Clerk Authentication** - Industry-standard auth with OAuth (Google, GitHub)
+- **JWT Token Verification** - Secure API authentication
+- **HTTPS-only** - Encrypted communication
+- **Environment Variables** - Secure credential storage
+- **SQL Injection Prevention** - Prepared statements
 
 ## 📸 Screenshots
 
@@ -224,7 +232,14 @@ MIT License - feel free to use this project for personal or commercial purposes.
 
 ## 📝 Changelog
 
-### v2.0.0 - Major Frontend Refactor (Latest)
+### v3.0.0 - Clerk Authentication (Latest)
+- 🔐 Migrated to Clerk for authentication
+- 🚀 Google OAuth & Magic Link support
+- ✨ Seamless user experience
+- 🔒 Enhanced security with JWT verification
+- 🧹 Removed legacy auth code
+
+### v2.0.0 - Major Frontend Refactor
 - ✨ Glassmorphism UI with sticky blur header
 - 🎨 Modern gradient color picker (10 colors)
 - 📊 Added Income Allocation & Spending charts

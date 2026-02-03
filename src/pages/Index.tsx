@@ -30,6 +30,7 @@ import {
   t,
 } from "@/lib/utils";
 import { Link, useNavigate } from 'react-router-dom';
+import { useClerk } from '@clerk/clerk-react';
 import { showSuccess, showError } from "@/utils/toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from "@/lib/api";
@@ -114,6 +115,7 @@ const getDefaultCategoryColor = (category: string) => {
 const Index = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { signOut } = useClerk();
 
   // Local State for UI
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -649,11 +651,9 @@ const Index = () => {
     showSuccess("All realization amounts set to match allocation.");
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('token');
-    navigate('/login');
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/sign-in');
   };
 
   const handleSort = (key: keyof BudgetItem) => {

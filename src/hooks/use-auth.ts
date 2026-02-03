@@ -1,12 +1,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth as useClerkAuth, useUser } from '@clerk/clerk-react';
 import { api } from '@/lib/api';
-
-const AUTH_KEYS = {
-  isLoggedIn: 'isLoggedIn',
-  currentUser: 'currentUser',
-  token: 'token',
-} as const;
 
 interface LinkedDevice {
   id: number;
@@ -19,69 +14,59 @@ interface LinkedDevice {
 interface User {
   id: string;
   username: string;
+  email?: string;
   linkedDevices?: LinkedDevice[];
   [key: string]: any;
 }
 
 interface UseAuthReturn {
   isLoggedIn: boolean;
-  token: string | null;
+  isLoaded: boolean;
   currentUser: User | null;
-  login: (token: string, user: User) => void;
   logout: () => void;
-  updateUser: (user: User) => void;
   refreshUser: () => Promise<User | null>;
-  getToken: () => string | null;
 }
 
 /**
- * Centralized authentication hook.
- * Handles login state, token management, and logout.
+ * Centralized authentication hook using Clerk.
+ * Handles login state and logout.
  */
 export function useAuth(): UseAuthReturn {
   const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState(localStorage.getItem(AUTH_KEYS.isLoggedIn) === 'true');
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const userStr = localStorage.getItem(AUTH_KEYS.currentUser);
-    if (!userStr) return null;
-    try {
-      return JSON.parse(userStr);
-    } catch {
-      return null;
+  const { isLoaded, isSignedIn, signOut } = useClerkAuth();
+  const { user: clerkUser } = useUser();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Build user object from Clerk user
+  useEffect(() => {
+    if (isLoaded && isSignedIn && clerkUser) {
+      setCurrentUser({
+        id: clerkUser.id,
+        username: clerkUser.primaryEmailAddress?.emailAddress || clerkUser.username || clerkUser.id,
+        email: clerkUser.primaryEmailAddress?.emailAddress,
+        firstName: clerkUser.firstName,
+        lastName: clerkUser.lastName,
+        imageUrl: clerkUser.imageUrl,
+      });
+    } else if (isLoaded && !isSignedIn) {
+      setCurrentUser(null);
     }
-  });
+  }, [isLoaded, isSignedIn, clerkUser]);
 
-  const getToken = useCallback(() => {
-    return localStorage.getItem(AUTH_KEYS.token);
-  }, []);
-
-  const login = useCallback((newToken: string, user: User) => {
-    localStorage.setItem(AUTH_KEYS.isLoggedIn, 'true');
-    localStorage.setItem(AUTH_KEYS.token, newToken);
-    localStorage.setItem(AUTH_KEYS.currentUser, JSON.stringify(user));
-    setIsLoggedIn(true);
-    setCurrentUser(user);
-  }, []);
-
-  const logout = useCallback(() => {
-    localStorage.removeItem(AUTH_KEYS.isLoggedIn);
-    localStorage.removeItem(AUTH_KEYS.currentUser);
-    localStorage.removeItem(AUTH_KEYS.token);
-    setIsLoggedIn(false);
+  const logout = useCallback(async () => {
+    await signOut();
     setCurrentUser(null);
-    navigate('/login');
-  }, [navigate]);
-
-  const updateUser = useCallback((user: User) => {
-    localStorage.setItem(AUTH_KEYS.currentUser, JSON.stringify(user));
-    setCurrentUser(user);
-  }, []);
+    navigate('/sign-in');
+  }, [signOut, navigate]);
 
   const refreshUser = useCallback(async () => {
     try {
       const data = await api.auth.me();
       if (data.user) {
-        updateUser(data.user);
+        setCurrentUser((prev) => ({
+          ...prev,
+          ...data.user,
+        }));
         return data.user;
       }
       return null;
@@ -89,30 +74,22 @@ export function useAuth(): UseAuthReturn {
       console.error('Failed to refresh user', error);
       return null;
     }
-  }, [updateUser]);
+  }, []);
 
   return {
-    isLoggedIn,
-    token: getToken(),
+    isLoggedIn: isSignedIn ?? false,
+    isLoaded,
     currentUser,
-    login,
     logout,
-    updateUser,
     refreshUser,
-    getToken,
   };
 }
 
 /**
- * Get token without hooks (for API calls outside React components)
- */
-export function getAuthToken(): string | null {
-  return localStorage.getItem(AUTH_KEYS.token);
-}
-
-/**
  * Check if user is authenticated (non-hook version)
+ * Note: This is a simplified check, use useAuth hook for full functionality
  */
 export function isAuthenticated(): boolean {
-  return localStorage.getItem(AUTH_KEYS.isLoggedIn) === 'true';
+  // This is a simplified check - the actual auth state is managed by Clerk
+  return document.cookie.includes('__clerk');
 }

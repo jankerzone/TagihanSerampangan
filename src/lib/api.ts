@@ -1,38 +1,59 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787';
 
+// Token getter function that will be set by ApiProvider
+let tokenGetter: (() => Promise<string | null>) | null = null;
+
+export function setTokenGetter(getter: () => Promise<string | null>) {
+    tokenGetter = getter;
+}
+
 export const api = {
     async request(endpoint: string, options: RequestInit = {}) {
-        const token = localStorage.getItem('token');
+        let token: string | null = null;
+
+        if (tokenGetter) {
+            token = await tokenGetter();
+            console.log('Token for API request:', token ? 'Token present' : 'No token');
+        } else {
+            console.error('No tokenGetter configured!');
+        }
+
         const headers = {
             'Content-Type': 'application/json',
             ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             ...options.headers,
         };
 
-        const response = await fetch(`${API_URL}${endpoint}`, {
-            ...options,
-            headers,
-        });
+        console.log('Making API request to:', `${API_URL}${endpoint}`);
 
-        if (response.status === 401) {
-            // Handle unauthorized (logout)
-            localStorage.removeItem('token');
-            localStorage.removeItem('currentUser');
-            window.location.href = '/login';
-            throw new Error('Unauthorized');
+        try {
+            const response = await fetch(`${API_URL}${endpoint}`, {
+                ...options,
+                headers,
+            });
+
+            console.log('API response status:', response.status);
+
+            if (response.status === 401) {
+                // Handle unauthorized - Clerk will handle the redirect
+                window.location.href = '/sign-in';
+                throw new Error('Unauthorized');
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('API error:', errorData);
+                throw new Error(errorData.error || 'API Request Failed');
+            }
+
+            return response.json();
+        } catch (error) {
+            console.error('API request failed:', error);
+            throw error;
         }
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || 'API Request Failed');
-        }
-
-        return response.json();
     },
 
     auth: {
-        login: (data: any) => api.request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
-        register: (data: any) => api.request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
         me: () => api.request('/auth/me'),
     },
 
