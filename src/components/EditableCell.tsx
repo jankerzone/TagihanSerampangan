@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/utils';
-import { Check, X, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { useEditableField } from '@/hooks/use-editable-field';
 
 interface EditableCellProps {
   value: number;
@@ -12,69 +13,30 @@ interface EditableCellProps {
   className?: string;
 }
 
-export const EditableCell: React.FC<EditableCellProps> = ({
+export const EditableCell = ({
   value,
   onSave,
   formatDisplay,
   type = 'currency',
   placeholder = '0',
   className = '',
-}) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [localValue, setLocalValue] = useState(value.toString());
-  const [isSaving, setIsSaving] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [isEditing]);
-
-  // Update localValue when prop changes (from optimistic update)
-  useEffect(() => {
-    if (!isEditing) {
-      setLocalValue(value.toString());
-    }
-  }, [value, isEditing]);
-
-  const handleSave = async () => {
-    const numValue = parseInt(localValue) || 0;
-    
-    // Don't save if value hasn't changed
-    if (numValue === value) {
-      setIsEditing(false);
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      await onSave(numValue);
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Failed to save:', error);
-      // Revert to original value on error
-      setLocalValue(value.toString());
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleCancel = () => {
-    setLocalValue(value.toString());
-    setIsEditing(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSave();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      handleCancel();
-    }
-  };
+}: EditableCellProps) => {
+  const {
+    isEditing,
+    localValue,
+    isSaving,
+    inputRef,
+    setLocalValue,
+    startEditing,
+    handleSave,
+    handleKeyDown,
+  } = useEditableField({
+    value,
+    onSave,
+    parseValue: (input) => parseInt(input) || 0,
+    formatValue: (val) => String(val),
+    validateBeforeSave: (newVal, oldVal) => newVal !== oldVal,
+  });
 
   const displayValue = formatDisplay
     ? formatDisplay(value)
@@ -86,7 +48,7 @@ export const EditableCell: React.FC<EditableCellProps> = ({
     return (
       <div className={`flex items-center gap-1 ${className}`}>
         <Input
-          ref={inputRef}
+          ref={inputRef as React.RefObject<HTMLInputElement>}
           type="number"
           value={localValue}
           onChange={(e) => setLocalValue(e.target.value)}
@@ -103,7 +65,7 @@ export const EditableCell: React.FC<EditableCellProps> = ({
 
   return (
     <div
-      onClick={() => setIsEditing(true)}
+      onClick={startEditing}
       className={`cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2 py-1 transition-colors ${className}`}
       title="Click to edit"
     >

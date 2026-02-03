@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
-import { PlusCircle, Target, TrendingUp, Trash2, Edit3, PiggyBank } from 'lucide-react';
+import { PlusCircle, Trash2, PiggyBank } from 'lucide-react';
 import { showSuccess, showError } from "@/utils/toast";
 import { Link, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from "@/components/ThemeToggle";

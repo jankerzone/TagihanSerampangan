@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Check, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface EditableCategoryCellProps {
   value: string;
@@ -19,30 +19,10 @@ export const EditableCategoryCell = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const [isSaving, setIsSaving] = useState(false);
-  const selectRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setEditValue(value);
   }, [value]);
-
-  const handleSave = async () => {
-    if (editValue === value || !editValue) {
-      setIsEditing(false);
-      setEditValue(value);
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      await onSave(editValue);
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Failed to save:', error);
-      setEditValue(value); // Revert on error
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleCancel = () => {
     setEditValue(value);
@@ -83,7 +63,6 @@ export const EditableCategoryCell = ({
         disabled={isSaving}
       >
         <SelectTrigger 
-          ref={selectRef}
           className="h-8 text-xs"
           autoFocus
         >

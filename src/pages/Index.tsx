@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
-import { PlusCircle, Trash2, Settings, LogOut, Loader2, Download, Upload, ListPlus, CheckSquare, ArrowUpDown, PiggyBank } from 'lucide-react';
+import { PlusCircle, Trash2, Settings, LogOut, Loader2, Download, Upload, ListPlus, CheckSquare, ArrowUpDown, PiggyBank, PieChartIcon, BarChart3 } from 'lucide-react';
 
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -39,6 +37,10 @@ import { EditableCell } from "@/components/EditableCell";
 import { EditableTextField } from "@/components/EditableTextField";
 import { EditableCategoryCell } from "@/components/EditableCategoryCell";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserNav } from "@/components/Header/UserNav";
+import { PeriodPicker } from "@/components/Header/PeriodPicker";
+import { SavingsContributionsSection } from "@/components/dashboard/SavingsContributionsSection";
+import { PieChart, Pie, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // Types
 interface IncomeSource {
@@ -107,128 +109,6 @@ const categoryColors: Record<string, string> = {
 
 const getDefaultCategoryColor = (category: string) => {
   return categoryColors[category] || 'bg-gray-100 text-gray-800 hover:bg-gray-200';
-};
-
-// Savings Contributions Component
-const SavingsContributionsSection = ({ currentKey }: { currentKey: string }) => {
-  const queryClient = useQueryClient();
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newContrib, setNewContrib] = useState({ goalId: '', amount: '' });
-
-  const { data: goals } = useQuery({
-    queryKey: ['savingsGoals'],
-    queryFn: api.savingsGoals.getAll,
-    initialData: { goals: [] }
-  });
-
-  const { data: contributions } = useQuery({
-    queryKey: ['savingsContributions', currentKey],
-    queryFn: () => api.savingsContributions.getByMonth(currentKey),
-    initialData: { contributions: [] }
-  });
-
-  const addContribMutation = useMutation({
-    mutationFn: api.savingsContributions.create,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['savingsContributions', currentKey] });
-      queryClient.invalidateQueries({ queryKey: ['savingsGoals'] });
-      showSuccess('Contribution added!');
-      setNewContrib({ goalId: '', amount: '' });
-      setIsAddOpen(false);
-    }
-  });
-
-  const deleteContribMutation = useMutation({
-    mutationFn: api.savingsContributions.delete,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['savingsContributions', currentKey] });
-      queryClient.invalidateQueries({ queryKey: ['savingsGoals'] });
-      showSuccess('Deleted!');
-    }
-  });
-
-  if (!goals || !goals.goals || goals.goals.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <PiggyBank className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-        <p className="text-gray-600 dark:text-gray-400 mb-4">No savings goals yet!</p>
-        <Link to="/savings-goals">
-          <Button>Create Your First Goal</Button>
-        </Link>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogTrigger asChild>
-          <Button size="sm" className="mb-4">
-            <PlusCircle className="h-4 w-4 mr-1" /> Add Contribution
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Monthly Contribution</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Select Goal</Label>
-              <Select value={newContrib.goalId} onValueChange={v => setNewContrib({...newContrib, goalId: v})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a goal..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {(goals?.goals || []).map((g: any) => (
-                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Amount (Rp)</Label>
-              <Input type="number" value={newContrib.amount} onChange={e => setNewContrib({...newContrib, amount: e.target.value})} placeholder="1000000" />
-            </div>
-            <Button onClick={() => {
-              if (!newContrib.goalId || !newContrib.amount) return;
-              addContribMutation.mutate({
-                savings_goal_id: newContrib.goalId,
-                month_key: currentKey,
-                amount: parseInt(newContrib.amount)
-              });
-            }} className="w-full">Add</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {(!contributions || !contributions.contributions || contributions.contributions.length === 0) ? (
-        <p className="text-gray-500 text-center py-4">No contributions this month</p>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Goal</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead className="w-16">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(contributions?.contributions || []).map((c: any) => (
-              <TableRow key={c.id}>
-                <TableCell className="font-medium">{c.goal_name}</TableCell>
-                <TableCell className="text-right">{formatCurrency(c.amount)}</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="sm" onClick={() => deleteContribMutation.mutate(c.id)}>
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </>
-  );
 };
 
 const Index = () => {
@@ -403,6 +283,27 @@ const Index = () => {
   const totalSpending = data?.budgetingList?.reduce((sum: number, item: BudgetItem) => sum + item.realization, 0) || 0;
   const remainingMoney = availableToSpend - totalSpending;
 
+  // Chart data for Income Allocation pie chart
+  const pieData = React.useMemo(() => {
+    const result = [];
+    if (totalPlannedSavings > 0) {
+      result.push({ name: 'Savings', value: totalPlannedSavings, color: '#3b82f6' });
+    }
+    if (availableToSpend > 0) {
+      result.push({ name: 'Expenses', value: availableToSpend, color: '#f97316' });
+    }
+    return result;
+  }, [totalPlannedSavings, availableToSpend]);
+
+  // Chart data for Spending by Category bar chart
+  const spendingByCategory = React.useMemo(() => {
+    const categoryMap: Record<string, number> = {};
+    (data?.budgetingList || []).forEach((item: BudgetItem) => {
+      categoryMap[item.category] = (categoryMap[item.category] || 0) + item.realization;
+    });
+    return Object.entries(categoryMap).map(([name, value]) => ({ name, value }));
+  }, [data?.budgetingList]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -553,10 +454,12 @@ const Index = () => {
   };
 
   const handleCopyFromPreviousMonth = async () => {
-    // This logic is a bit complex to migrate directly to backend without a specific endpoint
-    // For now, we'll fetch previous month data and save it to current month
-    // Or we can implement a backend endpoint for this.
-    // Let's do it client-side for now to save time.
+    // Warn if current month already has data
+    if (data.incomeSources.length > 0 || data.savingList.length > 0 || data.budgetingList.length > 0) {
+      if (!window.confirm(`${currentMonth} ${currentYear} already has data. This will REPLACE all current data. Continue?`)) {
+        return;
+      }
+    }
 
     const monthIndex = monthNames.indexOf(currentMonth);
     let prevYear = currentYear;
@@ -568,17 +471,18 @@ const Index = () => {
     }
 
     const prevKey = getMonthKey(prevYear, monthNames[prevMonthIndex]);
+    const prevMonthName = monthNames[prevMonthIndex];
 
     try {
       const prevData = await api.data.getMonthData(prevKey);
 
       if (prevData.incomeSources.length > 0 || prevData.savingList.length > 0 || prevData.budgetingList.length > 0) {
         const newData = {
-          incomeSources: prevData.incomeSources, // IDs might conflict if we don't regenerate them, but for now it's okay as they are unique per row in DB usually, but here we send them back. Ideally we should regenerate IDs.
+          incomeSources: prevData.incomeSources,
           savingList: prevData.savingList,
           budgetingList: prevData.budgetingList.map((item: any) => ({
             ...item,
-            realization: 0
+            realization: 0 // Reset realizations for new month
           }))
         };
 
@@ -588,12 +492,12 @@ const Index = () => {
         newData.budgetingList = newData.budgetingList.map((item: any) => ({ ...item, id: Date.now().toString() + Math.random() }));
 
         saveDataMutation.mutate(newData);
-        showSuccess(t('copySuccess'));
+        showSuccess(`Copied ${newData.incomeSources.length} income, ${newData.budgetingList.length} expenses, ${newData.savingList.length} savings from ${prevMonthName} ${prevYear}!`);
       } else {
-        showError(t('copyError'));
+        showError(`${prevMonthName} ${prevYear} has no data to copy!`);
       }
     } catch (e) {
-      showError(t('copyError'));
+      showError('Failed to copy data from previous month');
     }
   };
 
@@ -639,17 +543,27 @@ const Index = () => {
           throw new Error("Invalid file format - missing required fields");
         }
 
-        // Import only the data arrays
+        // Regenerate IDs to avoid conflicts and import to CURRENT month
         const importData = {
-          incomeSources: parsedData.incomeSources,
-          savingList: parsedData.savingList,
-          budgetingList: parsedData.budgetingList
+          incomeSources: parsedData.incomeSources.map((item: any) => ({ 
+            ...item, 
+            id: Date.now().toString() + Math.random() 
+          })),
+          savingList: parsedData.savingList.map((item: any) => ({ 
+            ...item, 
+            id: Date.now().toString() + Math.random() 
+          })),
+          budgetingList: parsedData.budgetingList.map((item: any) => ({ 
+            ...item, 
+            id: Date.now().toString() + Math.random(),
+            realization: 0 // Reset realizations for new month
+          }))
         };
 
-        // Use mutation with proper success/error handling
+        // Use mutation with proper success/error handling - saves to CURRENT month
         saveDataMutation.mutate(importData, {
           onSuccess: () => {
-            showSuccess(`Imported ${parsedData.incomeSources.length} income, ${parsedData.budgetingList.length} expenses, ${parsedData.savingList.length} savings!`);
+            showSuccess(`Imported ${importData.incomeSources.length} income, ${importData.budgetingList.length} expenses, ${importData.savingList.length} savings to ${currentMonth} ${currentYear}!`);
           },
           onError: (error: any) => {
             showError(`Failed to save imported data: ${error.message}`);
@@ -797,82 +711,68 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Sticky Glassmorphism Header */}
+      <header className="sticky top-0 z-50 w-full border-b border-gray-100/50 dark:border-gray-800/50 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md transition-all">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">{t('appName')}</h1>
+            <div className="flex items-center gap-3">
+              <img 
+                src="/tagihanserampangan-removebg-preview.png" 
+                alt="TagihanSerampangan Logo" 
+                className="h-10 w-10 object-contain"
+              />
+              <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100 hidden sm:block">
+                TagihanSerampangan <span className="text-gray-300 dark:text-gray-600 font-normal ml-1">|</span> <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">Money Management</span>
+              </h1>
+            </div>
             {isDataLoading && <Loader2 className="h-4 w-4 animate-spin text-gray-500" />}
           </div>
 
-          <div className="flex items-center gap-4 mt-4 md:mt-0">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('year')}:</span>
-                <Input
-                  type="number"
-                  value={currentYear}
-                  onChange={(e) => handleYearChange(e.target.value)}
-                  className="w-20 h-8 text-sm"
-                />
-              </div>
-
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('month')}:</span>
-                <Select value={currentMonth} onValueChange={handleMonthChange}>
-                  <SelectTrigger className="w-32 h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {monthNames.map(month => (
-                      <SelectItem key={month} value={month}>{month}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center mr-2">
+              <div className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
+                <div className="flex gap-1">
+                  <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-sm">←</kbd>
+                  <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-sm">→</kbd>
+                </div>
+                <span>Navigate</span>
               </div>
             </div>
 
-            <div className="hidden md:block">
-              <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs">←</kbd>
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs ml-1">→</kbd>
-                <span className="ml-1">navigate</span>
-                <span className="mx-1">•</span>
-                <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs">N</kbd>
-                <span className="ml-1">new item</span>
-              </div>
-            </div>
-
+            <PeriodPicker 
+              currentMonth={currentMonth}
+              currentYear={currentYear.toString()}
+              monthNames={monthNames}
+              onMonthChange={setCurrentMonth}
+              onYearChange={(year) => setCurrentYear(parseInt(year))}
+            />
+            
+            <div className="h-6 w-px bg-gray-200 dark:bg-gray-800 mx-1 hidden xs:block" />
+            
             <ThemeToggle />
-            <Link to="/savings-goals">
-              <Button variant="outline" size="sm">
-                <PiggyBank className="h-4 w-4 mr-1" />
-                Goals
-              </Button>
-            </Link>
-            <Link to="/settings">
-              <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 mr-1" />
-                {t('settings')}
-              </Button>
-            </Link>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-1" />
-              {t('logout')}
-            </Button>
+            <UserNav 
+              onLogout={handleLogout} 
+              onExport={handleExportData}
+              onImport={handleImportData}
+              onCopyPreviousMonth={handleCopyFromPreviousMonth}
+            />
           </div>
         </div>
+      </header>
 
+      <div className="max-w-7xl mx-auto p-4 md:p-8">
+        {/* Monthly Report */}
         {/* Monthly Report */}
         <Card className="mb-6 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
           <CardHeader>
             <CardTitle className="text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <span>{t('monthlyReport')}</span>
+              <PieChartIcon className="h-5 w-5" />
+              <span>{t('monthlyReport')} - {currentMonth} {currentYear}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
               <Card className={`${incomeColors.bgColor} ${incomeColors.borderColor} border`}>
                 <CardContent className="p-4">
                   <div className={`text-sm font-medium ${incomeColors.textColor}`}>{t('totalIncome')}</div>
@@ -884,7 +784,7 @@ const Index = () => {
                 <CardContent className="p-4">
                   <div className={`text-sm font-medium ${savingsColors.textColor}`}>Planned Savings</div>
                   <div className={`text-xl font-bold ${savingsColors.textColor}`}>{formatCurrency(totalPlannedSavings)}</div>
-                  <div className={`text-xs mt-1 ${savingsColors.textColor} opacity-75`}>Investment, Gold, etc.</div>
+                  <div className={`text-xs mt-1 ${savingsColors.textColor} opacity-75`}>{totalIncome > 0 ? `${Math.round((totalPlannedSavings / totalIncome) * 100)}% of income` : ''}</div>
                 </CardContent>
               </Card>
 
@@ -892,7 +792,7 @@ const Index = () => {
                 <CardContent className="p-4">
                   <div className={`text-sm font-medium ${budgetedColors.textColor}`}>Available to Spend</div>
                   <div className={`text-xl font-bold ${budgetedColors.textColor}`}>{formatCurrency(availableToSpend)}</div>
-                  <div className={`text-xs mt-1 ${budgetedColors.textColor} opacity-75`}>Total Budget Allocation</div>
+                  <div className={`text-xs mt-1 ${budgetedColors.textColor} opacity-75`}>{totalIncome > 0 ? `${Math.round((availableToSpend / totalIncome) * 100)}% of income` : ''}</div>
                 </CardContent>
               </Card>
 
@@ -900,6 +800,7 @@ const Index = () => {
                 <CardContent className="p-4">
                   <div className={`text-sm font-medium ${spendingColors.textColor}`}>{t('spending', { month: currentMonth })}</div>
                   <div className={`text-xl font-bold ${spendingColors.textColor}`}>{formatCurrency(totalSpending)}</div>
+                  <div className={`text-xs mt-1 ${spendingColors.textColor} opacity-75`}>{totalBudgetedExpenses > 0 ? `${Math.round((totalSpending / totalBudgetedExpenses) * 100)}% used` : ''}</div>
                 </CardContent>
               </Card>
 
@@ -915,52 +816,111 @@ const Index = () => {
                 </CardContent>
               </Card>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Data Management - Copy from Previous Month */}
-        <Card className="mb-6 border-blue-200 bg-blue-50 dark:bg-gray-800 dark:border-gray-700">
-          <CardHeader>
-            <CardTitle className="text-blue-800 dark:text-blue-300">{t('dataManagement')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-4">
-              <div className="space-y-4 flex-1 min-w-[200px]">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {t('copyPrevMonthDesc')}
-                </p>
-                <Button onClick={handleCopyFromPreviousMonth} className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
-                  {t('copyPrevMonthButton')}
-                </Button>
-              </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800 border-blue-200 dark:border-gray-600">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                    <PieChartIcon className="h-4 w-4" />
+                    Income Allocation
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {pieData.length > 0 ? (
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={pieData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {pieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.9)', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">No data available</div>
+                  )}
+                </CardContent>
+              </Card>
 
-              <div className="space-y-4 flex-1 min-w-[200px]">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Export or import data for backup purposes.
-                </p>
-                <div className="flex gap-2">
-                  <Button onClick={handleExportData} variant="outline" className="flex-1 sm:flex-none">
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
-                  </Button>
-                  <label className="relative cursor-pointer">
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={handleImportData}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <Button variant="outline" className="w-full pointer-events-none">
-                      <Upload className="h-4 w-4 mr-2" />
-                      Import
-                    </Button>
-                  </label>
-                </div>
-              </div>
+              <Card className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-gray-700 dark:to-gray-800 border-orange-200 dark:border-gray-600">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                    <BarChart3 className="h-4 w-4" />
+                    Spending by Category
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {spendingByCategory.length > 0 ? (
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={spendingByCategory}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+                          <XAxis dataKey="name" className="text-xs text-gray-600 dark:text-gray-400" angle={-45} textAnchor="end" height={80} />
+                          <YAxis className="text-xs text-gray-600 dark:text-gray-400" tickFormatter={(value) => `Rp${(value / 1000000).toFixed(1)}M`} />
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.9)', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
+                          <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#f97316">
+                            {spendingByCategory.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={`hsl(${10 + index * 25}, 70%, 55%)`} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">No spending data available</div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
+
+            {data.budgetingList.length > 0 && (
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-700 dark:to-gray-800 border-green-200 dark:border-gray-600">
+                  <CardContent className="p-4">
+                    <div className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">Under Budget Items</div>
+                    <div className="text-2xl font-bold text-green-800 dark:text-green-200">{data.budgetingList.filter((item: BudgetItem) => item.realization < item.allocation).length}</div>
+                    <div className="text-xs text-green-600 dark:text-green-300 mt-1">Items with remaining budget</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-gray-700 dark:to-gray-800 border-yellow-200 dark:border-gray-600">
+                  <CardContent className="p-4">
+                    <div className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">Near Budget Limit</div>
+                    <div className="text-2xl font-bold text-yellow-800 dark:text-yellow-200">
+                      {data.budgetingList.filter((item: BudgetItem) => {
+                        const percent = item.allocation > 0 ? (item.realization / item.allocation) * 100 : 0;
+                        return percent >= 90 && percent < 100;
+                      }).length}
+                    </div>
+                    <div className="text-xs text-yellow-600 dark:text-yellow-300 mt-1">90%+ budget used</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-red-50 to-rose-50 dark:from-gray-700 dark:to-gray-800 border-red-200 dark:border-gray-600">
+                  <CardContent className="p-4">
+                    <div className="text-sm font-medium text-red-800 dark:text-red-200 mb-2">Over Budget Items</div>
+                    <div className="text-2xl font-bold text-red-800 dark:text-red-200">{data.budgetingList.filter((item: BudgetItem) => item.realization > item.allocation).length}</div>
+                    <div className="text-xs text-red-600 dark:text-red-300 mt-1">Exceeded allocated budget</div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </CardContent>
         </Card>
 
+        {/* Data Management section moved to Settings page for cleaner dashboard */}
+        
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Income & Savings */}

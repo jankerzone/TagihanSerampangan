@@ -1,13 +1,11 @@
-"use client";
-
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, Trash2, Edit, Check, X, Loader2 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Plus, Trash2, Edit, Check, X, Loader2, Copy } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import {
   monthNames,
   t
@@ -17,7 +15,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from "@/lib/api";
 
 const Settings = () => {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const [newCategory, setNewCategory] = useState('');
@@ -161,18 +158,18 @@ const Settings = () => {
     updateSettings(updatedSettings);
   };
 
-  // Simple color palette with actual color names
+  // Modern color palette with gradients and better organization
   const colorPalette = [
-    { value: 'green-100', name: 'Green', class: 'bg-green-200' },
-    { value: 'blue-100', name: 'Blue', class: 'bg-blue-200' },
-    { value: 'orange-100', name: 'Orange', class: 'bg-orange-200' },
-    { value: 'red-100', name: 'Red', class: 'bg-red-200' },
-    { value: 'purple-100', name: 'Purple', class: 'bg-purple-200' },
-    { value: 'yellow-100', name: 'Yellow', class: 'bg-yellow-200' },
-    { value: 'pink-100', name: 'Pink', class: 'bg-pink-200' },
-    { value: 'teal-100', name: 'Teal', class: 'bg-teal-200' },
-    { value: 'indigo-100', name: 'Indigo', class: 'bg-indigo-200' },
-    { value: 'cyan-100', name: 'Cyan', class: 'bg-cyan-200' },
+    { value: 'green-100', name: 'Emerald', from: 'from-emerald-400', to: 'to-green-600', preview: 'bg-gradient-to-br from-emerald-50 to-green-100' },
+    { value: 'blue-100', name: 'Sky', from: 'from-blue-400', to: 'to-cyan-600', preview: 'bg-gradient-to-br from-blue-50 to-cyan-100' },
+    { value: 'purple-100', name: 'Purple', from: 'from-purple-400', to: 'to-indigo-600', preview: 'bg-gradient-to-br from-purple-50 to-indigo-100' },
+    { value: 'orange-100', name: 'Orange', from: 'from-orange-400', to: 'to-amber-600', preview: 'bg-gradient-to-br from-orange-50 to-amber-100' },
+    { value: 'red-100', name: 'Rose', from: 'from-red-400', to: 'to-rose-600', preview: 'bg-gradient-to-br from-red-50 to-rose-100' },
+    { value: 'pink-100', name: 'Pink', from: 'from-pink-400', to: 'to-fuchsia-600', preview: 'bg-gradient-to-br from-pink-50 to-fuchsia-100' },
+    { value: 'yellow-100', name: 'Amber', from: 'from-yellow-400', to: 'to-amber-500', preview: 'bg-gradient-to-br from-yellow-50 to-amber-100' },
+    { value: 'teal-100', name: 'Teal', from: 'from-teal-400', to: 'to-cyan-600', preview: 'bg-gradient-to-br from-teal-50 to-cyan-100' },
+    { value: 'indigo-100', name: 'Indigo', from: 'from-indigo-400', to: 'to-blue-600', preview: 'bg-gradient-to-br from-indigo-50 to-blue-100' },
+    { value: 'cyan-100', name: 'Cyan', from: 'from-cyan-400', to: 'to-teal-500', preview: 'bg-gradient-to-br from-cyan-50 to-teal-100' },
   ];
 
   const colorLabels = {
@@ -187,57 +184,25 @@ const Settings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Glassmorphism Header */}
+      <header className="sticky top-0 z-50 w-full border-b border-gray-100/50 dark:border-gray-800/50 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md transition-all">
+        <div className="max-w-4xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                {t('backToDashboard')}
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">{t('backToDashboard')}</span>
               </Button>
             </Link>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{t('settings')} ⚙️</h1>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {t('settings')}
+            </h1>
           </div>
         </div>
+      </header>
 
-        {/* Year & Month Settings */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>{t('yearMonthSettings')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="year">{t('year')}</Label>
-                <Input
-                  id="year"
-                  type="number"
-                  value={settings.currentYear}
-                  onChange={(e) => updateSettings({ ...settings, currentYear: parseInt(e.target.value) || 2025 })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="month">{t('month')}</Label>
-                <Select
-                  value={settings.currentMonth}
-                  onValueChange={(value) => updateSettings({ ...settings, currentMonth: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {monthNames.map(month => (
-                      <SelectItem key={month} value={month}>{month}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            {/* Removed redundant save button as we save on change now, or we can keep it but it does nothing extra */}
-          </CardContent>
-        </Card>
+      <div className="max-w-4xl mx-auto p-4 md:p-8">
 
         {/* Categories Settings */}
         <Card className="mb-6">
@@ -342,6 +307,18 @@ const Settings = () => {
                     <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 tracking-wider">
                       {telegramCode}
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`/link ${telegramCode}`);
+                        showSuccess('Copied /link command to clipboard!');
+                      }}
+                      className="mt-2"
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy /link {telegramCode}
+                    </Button>
                     <div className="text-sm text-gray-500 dark:text-gray-500">
                       Expires in: <span className="font-semibold">{Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}</span>
                     </div>
@@ -372,18 +349,21 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* Colors Settings */}
+        {/* Colors Settings - Modern Color Picker */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>{t('dashboardColors')}</CardTitle>
             <p className="text-sm text-gray-600 dark:text-gray-400">Choose colors for each card in Monthly Report</p>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
+            <div className="space-y-8">
               {Object.entries(settings.colors).map(([key, value]) => (
-                <div key={key} className="space-y-2">
-                  <Label className="text-base font-semibold">{colorLabels[key as keyof typeof colorLabels]}</Label>
-                  <div className="grid grid-cols-5 gap-3">
+                <div key={key} className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-semibold">{colorLabels[key as keyof typeof colorLabels]}</Label>
+                    <span className="text-sm text-gray-500 dark:text-gray-400 capitalize">{colorPalette.find(c => c.value === value)?.name || value}</span>
+                  </div>
+                  <div className="grid grid-cols-5 md:grid-cols-10 gap-3">
                     {colorPalette.map(color => (
                       <button
                         key={color.value}
@@ -393,13 +373,21 @@ const Settings = () => {
                             colors: { ...settings.colors, [key]: color.value }
                           });
                         }}
-                        className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${
+                        className={`group relative aspect-square rounded-xl transition-all duration-300 ${color.preview} ${
                           value === color.value 
-                            ? 'border-black dark:border-white ring-2 ring-offset-2 ring-black dark:ring-white' 
-                            : 'border-gray-300 dark:border-gray-600'
-                        } ${color.class}`}
+                            ? 'ring-4 ring-gray-900 dark:ring-white ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-900 scale-110 shadow-xl' 
+                            : 'hover:scale-105 hover:shadow-lg'
+                        }`}
+                        title={color.name}
                       >
-                        <div className="text-xs font-medium text-gray-800 dark:text-gray-900">{color.name}</div>
+                        {value === color.value && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Check className="h-5 w-5 text-gray-900 dark:text-white drop-shadow-lg" />
+                          </div>
+                        )}
+                        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-xs font-medium whitespace-nowrap bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-2 py-1 rounded">
+                          {color.name}
+                        </div>
                       </button>
                     ))}
                   </div>
