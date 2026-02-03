@@ -1,78 +1,248 @@
-# TagihanSerampangan
+# 💰 TagihanSerampangan
 
-Proyek ini adalah aplikasi web yang dibangun menggunakan React, Vite, TypeScript, dan di-styling dengan Tailwind CSS serta komponen dari shadcn/ui.
+A beautiful, modern expense tracking and budget management application with real-time Telegram bot integration. Track your income, expenses, savings goals, and get insights through interactive charts.
 
-## Tech Stack
+## ✨ Features
 
-- **Framework**: [React](https://react.dev/)
-- **Build Tool**: [Vite](https://vitejs.dev/)
-- **Bahasa**: [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **UI Library**: [shadcn/ui](https://ui.shadcn.com/)
-- **Routing**: [React Router](https://reactrouter.com/)
-- **Icons**: [Lucide React](https://lucide.dev/guide/packages/lucide-react)
+### 📊 Financial Management
+- **Income Tracking** - Multiple income sources with inline editing
+- **Budget Planning** - Allocate budgets by category (Zakat, Pajak, Keluarga, Rumah, etc.)
+- **Expense Tracking** - Track actual spending vs. budget allocations
+- **Savings Goals** - Set and track progress toward savings goals
+- **Monthly Contributions** - Track monthly savings contributions per goal
 
-## Memulai
+### 📈 Data Visualization
+- **Income Allocation Pie Chart** - Visual breakdown of income distribution
+- **Spending by Category Bar Chart** - Compare spending across categories
+- **Budget Progress Indicators** - Real-time budget usage tracking
+- **Savings Goal Progress** - Visual progress bars for each goal
 
-Untuk menjalankan proyek ini secara lokal, ikuti langkah-langkah berikut:
+### 🤖 Telegram Bot Integration
+- **Magic Link Authentication** - Secure bot linking with 5-minute expiring codes
+- **Quick Expense Logging** - Add expenses directly from Telegram
+- **Month Selection** - Choose which month to log expenses to
+- **Auto-Save to Database** - Seamless integration with main app
 
-1.  **Clone repositori:**
-    ```bash
-    git clone git@github.com:jankerzone/TagihanSerampangan.git
-    cd TagihanSerampangan
-    ```
+### 🎨 Modern UI/UX
+- **Glassmorphism Design** - Sticky blur header with modern aesthetics
+- **Dark Mode Support** - Full dark/light theme toggle
+- **Gradient Color Picker** - Beautiful 10-color palette for customization
+- **Responsive Layout** - Mobile-first design
+- **Keyboard Shortcuts** - `←/→` navigate months, `N` for new item
+- **Inline Editing** - Click to edit any field instantly
 
-2.  **Install dependensi:**
-    Disarankan menggunakan `pnpm`.
-    ```bash
-    pnpm install
-    ```
+### 💾 Data Management
+- **Export/Import** - Backup and restore data as JSON
+- **Copy Previous Month** - Quick template from last month
+- **Smart ID Generation** - Avoid conflicts when importing
+- **Confirmation Dialogs** - Prevent accidental data overwrites
 
-3.  **Jalankan server development:**
-    ```bash
-    pnpm run dev
-    ```
-    Aplikasi akan berjalan di `http://localhost:5173`.
+## 🛠️ Tech Stack
 
-## Skrip yang Tersedia
+### Frontend
+- **React 18** + TypeScript
+- **Vite** - Lightning fast build tool
+- **TanStack Query** - Server state management
+- **shadcn/ui** - Beautiful component library
+- **Tailwind CSS** - Utility-first styling
+- **Recharts** - Interactive data visualization
+- **Lucide Icons** - Beautiful icon library
 
-Dalam file `package.json`, terdapat beberapa skrip yang dapat Anda gunakan:
+### Backend
+- **Cloudflare Workers** - Serverless edge computing
+- **Cloudflare D1** - SQLite database at the edge
+- **Hono** - Lightweight web framework
+- **JWT Authentication** - Secure user sessions
 
-- `pnpm run dev`: Menjalankan aplikasi dalam mode development.
-- `pnpm run build`: Mem-build aplikasi untuk production ke dalam folder `dist`.
-- `pnpm run lint`: Menjalankan ESLint untuk memeriksa masalah dalam kode.
-- `pnpm run preview`: Menjalankan server lokal untuk melihat hasil build production.
+### Bot Integration
+- **Telegram Bot API** - Real-time expense logging
+- **Webhook Integration** - Instant updates
 
-## Struktur Folder
+## 🚀 Quick Start
 
-Struktur folder utama dalam proyek ini adalah sebagai berikut:
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+- Cloudflare account (for deployment)
 
+### Installation
+
+1. Clone the repository
+```bash
+git clone https://github.com/jankerzone/TagihanSerampangan.git
+cd TagihanSerampangan
 ```
-/
-├── public/         # Aset statis
-├── src/
-│   ├── components/   # Komponen UI (termasuk shadcn/ui)
-│   ├── hooks/        # Custom hooks
-│   ├── lib/          # Utilitas dan fungsi bantuan
-│   ├── pages/        # Halaman-halaman aplikasi
-│   ├── utils/        # Utilitas umum
-│   ├── App.tsx       # Komponen root dan routing
-│   └── main.tsx      # Titik masuk aplikasi
-└── package.json      # Dependensi dan skrip proyek
+
+2. Install dependencies
+```bash
+npm install
+cd worker && npm install && cd ..
 ```
 
-## Panduan Kontribusi
+3. Set up environment variables
+```bash
+# Create .env.production for frontend
+echo "VITE_API_URL=http://localhost:8787" > .env.production
 
-- **Struktur Kode**:
-    - Semua kode sumber berada di dalam direktori `src`.
-    - Halaman ditempatkan di `src/pages/`.
-    - Komponen yang dapat digunakan kembali ditempatkan di `src/components/`.
-    - Halaman utama (default) adalah `src/pages/Index.tsx`.
+# Configure worker/wrangler.toml for your Cloudflare account
+```
 
-- **Komponen & Styling**:
-    - **Gunakan shadcn/ui**: Manfaatkan komponen yang sudah ada dari `shadcn/ui` sebisa mungkin. Semua komponen sudah ter-install.
-    - **Tailwind CSS**: Gunakan kelas utilitas Tailwind CSS untuk semua styling.
-    - **Ikon**: Gunakan ikon dari `lucide-react`.
+4. Start development server
+```bash
+npm run dev
+```
 
-- **Routing**:
-    - Konfigurasi routing aplikasi berada di `src/App.tsx`. Pastikan untuk mendaftarkan halaman baru di sana.
+5. Start Cloudflare Workers (in another terminal)
+```bash
+cd worker
+npm run dev
+```
+
+Your app should now be running at:
+- Frontend: `http://localhost:8080`
+- Backend API: `http://localhost:8787`
+
+### Building for Production
+```bash
+npm run build
+```
+
+### Deploying to Cloudflare
+
+1. Deploy the worker:
+```bash
+cd worker
+npx wrangler deploy
+```
+
+2. Update `.env.production` with your worker URL:
+```bash
+VITE_API_URL=https://your-worker.your-subdomain.workers.dev
+```
+
+3. Build and deploy frontend to Cloudflare Pages:
+```bash
+npm run build
+npx wrangler pages deploy dist
+```
+
+## 📱 Telegram Bot Setup
+
+1. Create a bot via [@BotFather](https://t.me/BotFather)
+2. Get your bot token
+3. Add to `worker/wrangler.toml`:
+```toml
+[vars]
+TELEGRAM_BOT_TOKEN = "your_bot_token_here"
+```
+4. Set webhook:
+```bash
+curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://your-worker.workers.dev/telegram/webhook"
+```
+5. Link your account in Settings → Telegram Bot
+
+## 🎯 Usage
+
+### Adding Income
+1. Navigate to dashboard
+2. Click "+" in Income Sources section
+3. Enter name and amount
+4. Data saves automatically
+
+### Setting Budget
+1. Click "Add" in Expenses section
+2. Enter expense name, allocation, and category
+3. Track realization vs. allocation
+
+### Using Telegram Bot
+1. Go to Settings → Telegram Bot
+2. Click "Generate Link Code"
+3. Copy the `/link CODE` command
+4. Send to your Telegram bot
+5. Start logging expenses on-the-go!
+
+### Importing/Exporting Data
+1. Click user avatar (top right)
+2. Select "Export Data" to download JSON backup
+3. Select "Import Data" to restore from backup
+4. Select "Copy Previous Month" to duplicate last month's budget
+
+## 🎨 Customization
+
+### Dashboard Colors
+Settings → Dashboard Colors → Choose from 10 gradient options for each metric card
+
+### Categories
+Settings → Expense Categories → Add/edit/delete custom categories
+
+### Language
+Settings → Language → English or Bahasa Indonesia
+
+## 📊 Key Metrics
+
+- **Total Income** - Sum of all income sources
+- **Planned Savings** - Monthly savings contributions
+- **Available to Spend** - Total budget allocations
+- **Actual Spending** - Real expenses tracked
+- **Remaining** - Budget left for the month
+
+## 🔒 Security
+
+- JWT-based authentication
+- Secure password hashing (bcrypt)
+- HTTPS-only communication
+- Environment variable protection
+- SQL injection prevention with prepared statements
+
+## 📸 Screenshots
+
+_Coming soon_
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m '✨ Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+MIT License - feel free to use this project for personal or commercial purposes.
+
+## 👨‍💻 Author
+
+**Robsan** ([@jankerzone](https://github.com/jankerzone))
+
+## 🙏 Acknowledgments
+
+- Built with love using modern web technologies
+- Inspired by personal budget management needs
+- Community feedback and contributions
+
+## 📝 Changelog
+
+### v2.0.0 - Major Frontend Refactor (Latest)
+- ✨ Glassmorphism UI with sticky blur header
+- 🎨 Modern gradient color picker (10 colors)
+- 📊 Added Income Allocation & Spending charts
+- 🔧 Fixed Export/Import with ID regeneration
+- 🧩 Code organization with shared hooks
+- 🎯 All data management in UserNav dropdown
+- ⌨️ Keyboard shortcuts support
+
+### v1.0.0 - Initial Release
+- Basic expense tracking
+- Telegram bot integration
+- Budget management
+- Savings goals
+
+---
+
+⭐ **Star this repo** if you find it helpful!
+
+📧 **Issues & Questions**: [Open an issue](https://github.com/jankerzone/TagihanSerampangan/issues)
+
+🔗 **Live Demo**: _Coming soon_
