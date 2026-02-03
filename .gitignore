@@ -33,3 +33,10 @@ test-*.html
 *.bak2
 .vite/
 worker/.wrangler/tmp/
+
+# Worker sensitive files
+worker/.wrangler/state/
+worker/.dev.vars
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
