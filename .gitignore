@@ -51,6 +51,7 @@ krisna/
 post-build.sh
 WORKFLOW.md
 deploy.sh
+git-push.sh
 
 # AI/Planning documentation (local only)
 AI_IMPLEMENTATION.md
