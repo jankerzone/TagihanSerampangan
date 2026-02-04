@@ -32,6 +32,9 @@ import { Link } from 'react-router-dom';
 import { t } from '@/lib/utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Badge } from "@/components/ui/badge";
+import { EditableTextField } from "@/components/EditableTextField";
+import { EditableCategoryCell } from "@/components/EditableCategoryCell";
+import { EditableCell } from "@/components/EditableCell";
 
 const Expenses = () => {
   const queryClient = useQueryClient();
@@ -56,6 +59,23 @@ const Expenses = () => {
   const { data: monthData, isLoading } = useQuery({
     queryKey: ['monthData', selectedMonth],
     queryFn: () => api.data.getMonthData(selectedMonth),
+  });
+
+  // Update expense mutation
+  const updateExpenseMutation = useMutation({
+    mutationFn: async ({ expenseId, field, value }: { expenseId: string; field: string; value: any }) => {
+      return api.request(`/api/expenses/${expenseId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ [field]: value })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monthData', selectedMonth] });
+      showSuccess('Expense updated');
+    },
+    onError: (error: any) => {
+      showError(error.message || 'Failed to update expense');
+    }
   });
 
   // Delete expense mutation
@@ -214,11 +234,31 @@ const Expenses = () => {
                         <TableCell className="font-medium">
                           {format(new Date(expense.date), 'dd MMM yyyy')}
                         </TableCell>
-                        <TableCell>{expense.description}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="bg-gray-50 dark:bg-gray-900">
-                            {expense.category}
-                          </Badge>
+                          <EditableTextField
+                            value={expense.description}
+                            onSave={async (value) => {
+                              await updateExpenseMutation.mutateAsync({
+                                expenseId: expense.id,
+                                field: 'description',
+                                value
+                              });
+                            }}
+                            placeholder="Enter description"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <EditableCategoryCell
+                            value={expense.category}
+                            categories={settings?.categories || []}
+                            onSave={async (value) => {
+                              await updateExpenseMutation.mutateAsync({
+                                expenseId: expense.id,
+                                field: 'category',
+                                value
+                              });
+                            }}
+                          />
                         </TableCell>
                         <TableCell>
                           {expense.source === 'telegram' ? (
@@ -230,7 +270,17 @@ const Expenses = () => {
                           )}
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          Rp {expense.amount.toLocaleString('id-ID')}
+                          <EditableCell
+                            value={expense.amount}
+                            onSave={async (value) => {
+                              await updateExpenseMutation.mutateAsync({
+                                expenseId: expense.id,
+                                field: 'amount',
+                                value
+                              });
+                            }}
+                            type="currency"
+                          />
                         </TableCell>
                         <TableCell>
                           <Button

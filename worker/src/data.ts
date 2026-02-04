@@ -249,6 +249,44 @@ app.patch('/savings/:id', async (c) => {
     return c.json({ success: true, item: updatedItem });
 });
 
+// Update individual expense
+app.patch('/expenses/:id', async (c) => {
+    const userId = c.get('jwtPayload').id;
+    const expenseId = c.req.param('id');
+    const updates = await c.req.json();
+
+    const allowedFields = ['description', 'amount', 'category', 'date'];
+    const updateFields: string[] = [];
+    const values: any[] = [];
+
+    for (const field of allowedFields) {
+        if (updates[field] !== undefined) {
+            updateFields.push(`${field} = ?`);
+            values.push(updates[field]);
+        }
+    }
+
+    if (updateFields.length === 0) {
+        return c.json({ error: 'No valid fields to update' }, 400);
+    }
+
+    values.push(expenseId, userId);
+
+    const query = `UPDATE daily_expenses SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`;
+
+    const result = await c.env.DB.prepare(query).bind(...values).run();
+
+    if (result.meta.changes === 0) {
+        return c.json({ error: 'Expense not found or unauthorized' }, 404);
+    }
+
+    const updatedExpense = await c.env.DB.prepare(
+        'SELECT * FROM daily_expenses WHERE id = ? AND user_id = ?'
+    ).bind(expenseId, userId).first();
+
+    return c.json({ success: true, expense: updatedExpense });
+});
+
 // Delete individual expense
 app.delete('/expenses/:id', async (c) => {
     const userId = c.get('jwtPayload').id;

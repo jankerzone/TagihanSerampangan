@@ -46,3 +46,11 @@ worker/.dev.vars
 
 # VPS deployment directory (kribo worktrees)
 krisna/
+
+# VPS-specific workflow files (local development only)
+post-build.sh
+WORKFLOW.md
+
+# AI/Planning documentation (local only)
+AI_IMPLEMENTATION.md
+INVESTMENT_PLAN.md

@@ -13,4 +13,8 @@ CLERK_PUBLISHABLE_KEY = "pk_test_cmljaC1ib2JjYXQtNjYuY2xlcmsuYWNjb3VudHMuZGV2JA"
 
 # CLERK_SECRET_KEY should be set via: wrangler secret put CLERK_SECRET_KEY
 
+# AI binding for intelligent category matching
+[ai]
+binding = "AI"
+
 # CORS is handled in the application code (src/index.ts) using Hono's cors middleware.

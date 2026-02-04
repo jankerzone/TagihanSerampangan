@@ -7,6 +7,7 @@ import { Hono } from 'hono';
 type Bindings = {
   DB: D1Database;
   TELEGRAM_BOT_TOKEN: string;
+  AI: any;
 };
 
 export interface ParsedExpense {
@@ -15,6 +16,7 @@ export interface ParsedExpense {
   amount: number;
   category: string;
   confidence: number;
+  categorySource?: 'keyword' | 'ai' | 'default';
 }
 
 interface TelegramUser {
@@ -95,8 +97,104 @@ function extractDescription(text: string, amount: number): string {
     .replace(/(?:rp\.?\s*)?(?:\d{1,3}(?:\.\d{3})+|\d+)/gi, '')
     .replace(/beli|buy|untuk|for/gi, '')
     .trim();
-  
+
   return cleaned || 'expense';
+}
+
+// ============================================================================
+// AI-POWERED CATEGORY DETECTION
+// ============================================================================
+
+async function getUserCategories(db: D1Database, userId: number): Promise<string[]> {
+  const result = await db.prepare(
+    'SELECT DISTINCT category FROM daily_expenses WHERE user_id = ? ORDER BY category'
+  ).bind(userId).all();
+
+  const categories = result.results?.map((r: any) => r.category as string) || [];
+
+  // If user has no categories yet, provide defaults
+  if (categories.length === 0) {
+    return ['Food', 'Transport', 'Utilities', 'Health', 'Education', 'Shopping', 'Entertainment', 'Others'];
+  }
+
+  // Always ensure "Others" exists
+  if (!categories.includes('Others')) {
+    categories.push('Others');
+  }
+
+  return categories;
+}
+
+async function detectCategoryWithAI(
+  ai: any,
+  description: string,
+  userCategories: string[]
+): Promise<{ category: string; source: 'ai' }> {
+  try {
+    const prompt = `You are an expense categorization assistant.
+
+User's categories: ${userCategories.join(', ')}
+
+Expense: "${description}"
+
+Rules:
+- Choose the BEST category from the user's list
+- SPP/sekolah/les/kursus → Education (if exists)
+- Bensin/motor/gojek/grab → Transport (if exists)
+- Beras/makan/food → Food (if exists)
+- Susu anak/popok/mainan anak → Family/Kids (if exists)
+- If no good match → "Others"
+- Return ONLY the category name
+
+Category:`;
+
+    const response = await ai.run('@cf/meta/llama-3-8b-instruct', {
+      prompt: prompt,
+      max_tokens: 20
+    });
+
+    const aiCategory = response.response?.trim().replace(/['"]/g, '') || 'Others';
+
+    // Validate: category must exist in user's list
+    const matchedCategory = userCategories.find(cat =>
+      aiCategory.toLowerCase() === cat.toLowerCase() ||
+      aiCategory.toLowerCase().includes(cat.toLowerCase()) ||
+      cat.toLowerCase().includes(aiCategory.toLowerCase())
+    );
+
+    return {
+      category: matchedCategory || 'Others',
+      source: 'ai'
+    };
+  } catch (error) {
+    console.error('AI categorization error:', error);
+    return { category: 'Others', source: 'ai' };
+  }
+}
+
+async function detectCategoryEnhanced(
+  description: string,
+  userId: number,
+  db: D1Database,
+  ai?: any
+): Promise<{ category: string; source: 'keyword' | 'ai' | 'default' }> {
+  // Step 1: Try keyword matching (fast, free)
+  const keywordCategory = detectCategory(description);
+  if (keywordCategory !== 'Others') {
+    return { category: keywordCategory, source: 'keyword' };
+  }
+
+  // Step 2: If AI available, use it with user's categories
+  if (ai) {
+    const userCategories = await getUserCategories(db, userId);
+    const aiResult = await detectCategoryWithAI(ai, description, userCategories);
+    if (aiResult.category !== 'Others') {
+      return aiResult;
+    }
+  }
+
+  // Step 3: Fallback to Others
+  return { category: 'Others', source: 'default' };
 }
 
 export function parseExpense(text: string): ParsedExpense {
@@ -288,16 +386,17 @@ function getMonthOptions() {
   return months;
 }
 
-function createMonthKeyboard(parsed: ParsedExpense) {
+function createMonthKeyboard(parsed: ParsedExpense, messageId: number) {
   const months = getMonthOptions();
-  
+
   // Encode expense data in callback_data (max 64 bytes)
-  // Format: month_MONTHKEY_AMOUNT_DESC_CAT
+  // Format: month_MONTHKEY_AMOUNT_MSGID_CAT
+  // Use message ID instead of description to avoid truncation
   return {
     inline_keyboard: [
-      months.map(m => ({ 
-        text: m.displayName, 
-        callback_data: `m_${m.monthKey}_${parsed.amount}_${encodeURIComponent(parsed.description.substring(0, 15))}_${parsed.category}`
+      months.map(m => ({
+        text: m.displayName,
+        callback_data: `m_${m.monthKey}_${parsed.amount}_${messageId}_${parsed.category}`
       }))
     ]
   };
@@ -329,15 +428,19 @@ Track your daily expenses easily!
 }
 
 function formatExpensePreview(parsed: ParsedExpense): string {
-  const amount = parsed.amount > 0 
+  const amount = parsed.amount > 0
     ? `Rp ${parsed.amount.toLocaleString('id-ID')}`
     : '⚠️ Amount not detected';
-  
+
+  const categoryDisplay = parsed.categorySource === 'ai'
+    ? `${parsed.category} 🤖`
+    : parsed.category;
+
   return `📋 *Expense Detected*
 
 📝 Description: ${parsed.description}
 💰 Amount: ${amount}
-🏷️ Category: ${parsed.category}
+🏷️ Category: ${categoryDisplay}
 
 ${parsed.confidence < 0.5 ? '⚠️ Please check the details' : ''}
 Select which month to save this expense:`;
@@ -392,19 +495,30 @@ telegramRoutes.post('/webhook', async (c) => {
         return c.json({ ok: true });
       }
       
-      // Parse callback data (format: "m_2026-February_30000_beras_Food")
+      // Parse callback data (format: "m_2026-February_30000_MSGID_Food")
       if (query.data?.startsWith('m_')) {
         const parts = query.data.split('_');
         if (parts.length < 5) {
           await answerCallbackQuery(botToken, query.id, '❌ Invalid data');
           return c.json({ ok: true });
         }
-        
+
         const monthKey = parts[1];
         const amount = parseInt(parts[2]);
-        const description = decodeURIComponent(parts[3]);
+        const originalMessageId = parseInt(parts[3]);
         const category = parts[4];
-        
+
+        // Extract full description from the displayed message text
+        // The message shows "📝 Description: XXX" so we parse it
+        const messageText = query.message?.text || '';
+        const descMatch = messageText.match(/📝 Description: (.+)/m);
+        let description = 'expense';
+
+        if (descMatch) {
+          // Get the line after "Description:" and before the next line
+          description = descMatch[1].split('\n')[0].trim();
+        }
+
         const parsed: ParsedExpense = {
           raw: description,
           description,
@@ -412,7 +526,7 @@ telegramRoutes.post('/webhook', async (c) => {
           category,
           confidence: 0.8
         };
-        
+
         // Save expense
         await saveDailyExpense(db, user.id as number, monthKey, parsed, messageId);
         
@@ -550,29 +664,42 @@ telegramRoutes.post('/webhook', async (c) => {
     // Parse expense
     const user = await getUserByTelegramId(db, telegramUserId);
     if (!user) {
-      await sendMessage(botToken, chatId, 
+      await sendMessage(botToken, chatId,
         '❌ Please link your account first!\n\nUse `/link CODE` (get code from app settings)'
       );
       return c.json({ ok: true });
     }
-    
+
+    // First parse amount and description with regex
     const parsed = parseExpense(text);
-    
+
     if (parsed.amount === 0) {
-      await sendMessage(botToken, chatId, 
+      await sendMessage(botToken, chatId,
         '⚠️ Could not detect amount.\n\nTry formats like:\n• "beli beras 30rb"\n• "ngecas motor 15000"'
       );
       return c.json({ ok: true });
     }
-    
+
+    // Enhance category detection with AI
+    const ai = c.env.AI;
+    const enhancedCategory = await detectCategoryEnhanced(
+      parsed.description,
+      user.id as number,
+      db,
+      ai
+    );
+
+    parsed.category = enhancedCategory.category;
+    parsed.categorySource = enhancedCategory.source;
+
     // Send month selection (expense data encoded in buttons)
     await sendMessage(
       botToken,
       chatId,
       formatExpensePreview(parsed),
-      { reply_markup: createMonthKeyboard(parsed) }
+      { reply_markup: createMonthKeyboard(parsed, message.message_id) }
     );
-    
+
     return c.json({ ok: true });
   } catch (error) {
     console.error('Webhook error:', error);
