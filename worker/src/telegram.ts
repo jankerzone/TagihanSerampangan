@@ -7,6 +7,7 @@ import { Hono } from 'hono';
 type Bindings = {
   DB: D1Database;
   TELEGRAM_BOT_TOKEN: string;
+  TELEGRAM_SECRET_TOKEN: string;
   AI: any;
 };
 
@@ -109,6 +110,10 @@ function extractDescription(text: string, amount: number): string {
     .trim();
 
   return cleaned || 'expense';
+}
+
+function escapeMarkdown(text: string): string {
+  return text.replace(/[_*[\]`]/g, '\\$&');
 }
 
 // ============================================================================
@@ -458,14 +463,18 @@ function formatExpensePreview(parsed: ParsedExpense, showCategoryPrompt: boolean
     ? `Rp ${parsed.amount.toLocaleString('id-ID')}`
     : '⚠️ Amount not detected';
 
+  // Sanitize user inputs
+  const safeDescription = escapeMarkdown(parsed.description);
+  const safeCategory = escapeMarkdown(parsed.category);
+
   const categoryDisplay = parsed.categorySource === 'ai'
-    ? `${parsed.category} 🤖`
-    : parsed.category;
+    ? `${safeCategory} 🤖`
+    : safeCategory;
 
   if (showCategoryPrompt) {
     return `📋 *Expense Detected*
 
-📝 Description: ${parsed.description}
+📝 Description: ${safeDescription}
 💰 Amount: ${amount}
 🏷️ Category: ${categoryDisplay}
 
@@ -474,7 +483,7 @@ ${parsed.categorySource === 'ai' ? '🤖 AI detected this category. ' : ''}Choos
 
   return `📋 *Expense Detected*
 
-📝 Description: ${parsed.description}
+📝 Description: ${safeDescription}
 💰 Amount: ${amount}
 🏷️ Category: ${categoryDisplay}
 
@@ -487,11 +496,14 @@ function formatSaveConfirmation(
   monthKey: string,
   monthTotal: { count: number; total: number }
 ): string {
+  const safeDescription = escapeMarkdown(parsed.description);
+  const safeCategory = escapeMarkdown(parsed.category);
+
   return `✅ *Expense Saved!*
 
-📝 ${parsed.description}
+📝 ${safeDescription}
 💰 Rp ${parsed.amount.toLocaleString('id-ID')}
-🏷️ ${parsed.category}
+🏷️ ${safeCategory}
 📅 ${monthKey}
 
 📊 *${monthKey.split('-')[1]} Summary:*
@@ -508,6 +520,14 @@ export const telegramRoutes = new Hono<{ Bindings: Bindings }>();
 // Webhook handler
 telegramRoutes.post('/webhook', async (c) => {
   try {
+    const secretToken = c.req.header('X-Telegram-Bot-Api-Secret-Token');
+    const configuredSecret = c.env.TELEGRAM_SECRET_TOKEN;
+
+    if (configuredSecret && secretToken !== configuredSecret) {
+      console.error('Unauthorized webhook access attempt');
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
     const update: TelegramUpdate = await c.req.json();
     const botToken = c.env.TELEGRAM_BOT_TOKEN;
     const db = c.env.DB;
@@ -671,8 +691,9 @@ telegramRoutes.post('/webhook', async (c) => {
       const result = await linkTelegramAccount(db, code.toUpperCase(), telegramUserId, username, firstName);
       
       if (result.success) {
+        const safeEmail = escapeMarkdown(result.email || 'User');
         await sendMessage(botToken, chatId, 
-          `✅ *Account Linked!*\n\nYou're now logged in as: ${result.email}\n\nStart tracking expenses by sending messages like:\n• "beli beras 30rb"\n• "ngecas motor 15rb"`
+          `✅ *Account Linked!*\n\nYou're now logged in as: ${safeEmail}\n\nStart tracking expenses by sending messages like:\n• "beli beras 30rb"\n• "ngecas motor 15rb"`
         );
       } else {
         await sendMessage(botToken, chatId, `❌ ${result.error}`);
@@ -701,9 +722,10 @@ telegramRoutes.post('/webhook', async (c) => {
       if (user) {
         const currentMonth = getMonthOptions()[0];
         const stats = await getMonthlyTotal(db, user.id as number, currentMonth.monthKey);
+        const safeUsername = escapeMarkdown(user.username);
         
         await sendMessage(botToken, chatId, 
-          `📊 *Account Status*\n\nLinked to: ${user.username}\n\n*${currentMonth.displayName} Stats:*\n• Expenses: ${stats.count}\n• Total: Rp ${stats.total.toLocaleString('id-ID')}`
+          `📊 *Account Status*\n\nLinked to: ${safeUsername}\n\n*${currentMonth.displayName} Stats:*\n• Expenses: ${stats.count}\n• Total: Rp ${stats.total.toLocaleString('id-ID')}`
         );
       } else {
         await sendMessage(botToken, chatId, 
@@ -736,7 +758,8 @@ telegramRoutes.post('/webhook', async (c) => {
       expenses.forEach((e: any) => {
         const date = e.date.split('-').slice(1).reverse().join('/'); // MM-DD -> DD/MM
         const amount = e.amount.toLocaleString('id-ID');
-        message += `• ${date}: ${e.description} - Rp ${amount}\n`;
+        const safeDesc = escapeMarkdown(e.description);
+        message += `• ${date}: ${safeDesc} - Rp ${amount}\n`;
       });
       
       message += `\n📊 *Summary:*\n• Count: ${stats.count}\n• Total: Rp ${stats.total.toLocaleString('id-ID')}`;
@@ -797,8 +820,14 @@ telegramRoutes.post('/webhook', async (c) => {
 // Setup webhook endpoint
 telegramRoutes.get('/setup-webhook', async (c) => {
   const botToken = c.env.TELEGRAM_BOT_TOKEN;
+  const secretToken = c.env.TELEGRAM_SECRET_TOKEN;
+
   if (!botToken) {
     return c.json({ error: 'TELEGRAM_BOT_TOKEN not configured' }, 500);
+  }
+
+  if (!secretToken) {
+    return c.json({ error: 'TELEGRAM_SECRET_TOKEN not configured' }, 500);
   }
   
   const webhookUrl = `${new URL(c.req.url).origin}/telegram/webhook`;
@@ -810,6 +839,7 @@ telegramRoutes.get('/setup-webhook', async (c) => {
       body: JSON.stringify({
         url: webhookUrl,
         allowed_updates: ['message', 'callback_query'],
+        secret_token: secretToken,
       }),
     });
     

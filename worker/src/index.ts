@@ -11,6 +11,7 @@ type Bindings = {
   CLERK_SECRET_KEY: string;
   CLERK_PUBLISHABLE_KEY: string;
   TELEGRAM_BOT_TOKEN: string;
+  TELEGRAM_SECRET_TOKEN: string;
 };
 
 type Variables = {
