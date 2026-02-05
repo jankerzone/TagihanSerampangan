@@ -54,10 +54,9 @@ export function useAuth(): UseAuthReturn {
   }, [isLoaded, isSignedIn, clerkUser]);
 
   const logout = useCallback(async () => {
-    await signOut();
+    await signOut({ redirectUrl: '/' });
     setCurrentUser(null);
-    navigate('/sign-in');
-  }, [signOut, navigate]);
+  }, [signOut]);
 
   const refreshUser = useCallback(async () => {
     try {

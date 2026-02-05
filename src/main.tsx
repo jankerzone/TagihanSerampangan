@@ -10,7 +10,13 @@ if (!CLERK_PUBLISHABLE_KEY) {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+  <ClerkProvider
+    publishableKey={CLERK_PUBLISHABLE_KEY}
+    signInUrl="/sign-in"
+    signUpUrl="/sign-up"
+    afterSignInUrl="/"
+    afterSignUpUrl="/"
+  >
     <App />
   </ClerkProvider>
 );

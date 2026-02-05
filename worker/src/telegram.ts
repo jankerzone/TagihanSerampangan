@@ -60,20 +60,29 @@ const CATEGORIES: Record<string, string[]> = {
 };
 
 const amountPatterns = [
-  /(\d+(?:\.\d+)?)\s*(?:rb|k|ribu)/i,
-  /(?:rp\.?\s*)?(\d{1,3}(?:\.\d{3})+|\d+)/i,
+  /(\d+(?:[.,]\d+)?)\s*(?:juta|jt|million|m)\b/i,  // Millions: 1juta, 1.5jt, 2million
+  /(\d+(?:[.,]\d+)?)\s*(?:rb|k|ribu)\b/i,           // Thousands: 300rb, 50k, 100ribu
+  /(?:rp\.?\s*)?(\d{1,3}(?:[.,]\d{3})+|\d+)/i,     // Formatted: Rp 1.000.000 or plain numbers
 ];
 
 function parseAmount(text: string): number | null {
   for (const pattern of amountPatterns) {
     const match = text.match(pattern);
     if (match) {
-      let amount = match[1].replace(/\./g, '');
-      let num = parseInt(amount);
-      if (match[0].match(/(rb|k|ribu)/i)) {
+      // Clean the matched number (remove dots/commas used as thousand separators)
+      let amount = match[1].replace(/[.,]/g, '');
+      let num = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
+
+      // Check for million suffix
+      if (match[0].match(/(?:juta|jt|million|m)\b/i)) {
+        num *= 1000000;
+      }
+      // Check for thousand suffix
+      else if (match[0].match(/(?:rb|k|ribu)\b/i)) {
         num *= 1000;
       }
-      return num;
+
+      return Math.round(num);
     }
   }
   return null;
@@ -93,9 +102,10 @@ function detectCategory(text: string): string {
 
 function extractDescription(text: string, amount: number): string {
   let cleaned = text
-    .replace(/(\d+(?:\.\d+)?)\s*(?:rb|k|ribu)/gi, '')
-    .replace(/(?:rp\.?\s*)?(?:\d{1,3}(?:\.\d{3})+|\d+)/gi, '')
-    .replace(/beli|buy|untuk|for/gi, '')
+    .replace(/(\d+(?:[.,]\d+)?)\s*(?:juta|jt|million|m)\b/gi, '')  // Remove millions
+    .replace(/(\d+(?:[.,]\d+)?)\s*(?:rb|k|ribu)\b/gi, '')           // Remove thousands
+    .replace(/(?:rp\.?\s*)?(?:\d{1,3}(?:[.,]\d{3})+|\d+)/gi, '')   // Remove plain numbers
+    .replace(/beli|buy|untuk|for/gi, '')                            // Remove filler words
     .trim();
 
   return cleaned || 'expense';
@@ -386,6 +396,22 @@ function getMonthOptions() {
   return months;
 }
 
+function createCategoryKeyboard(userCategories: string[], messageId: number, amount: number) {
+  // Create rows of 2 buttons each for better layout
+  const rows = [];
+  for (let i = 0; i < userCategories.length; i += 2) {
+    const row = userCategories.slice(i, i + 2).map(cat => ({
+      text: cat,
+      callback_data: `cat_${messageId}_${amount}_${cat}`
+    }));
+    rows.push(row);
+  }
+
+  return {
+    inline_keyboard: rows
+  };
+}
+
 function createMonthKeyboard(parsed: ParsedExpense, messageId: number) {
   const months = getMonthOptions();
 
@@ -427,7 +453,7 @@ Track your daily expenses easily!
 /help - Show this message`;
 }
 
-function formatExpensePreview(parsed: ParsedExpense): string {
+function formatExpensePreview(parsed: ParsedExpense, showCategoryPrompt: boolean = false): string {
   const amount = parsed.amount > 0
     ? `Rp ${parsed.amount.toLocaleString('id-ID')}`
     : '⚠️ Amount not detected';
@@ -435,6 +461,16 @@ function formatExpensePreview(parsed: ParsedExpense): string {
   const categoryDisplay = parsed.categorySource === 'ai'
     ? `${parsed.category} 🤖`
     : parsed.category;
+
+  if (showCategoryPrompt) {
+    return `📋 *Expense Detected*
+
+📝 Description: ${parsed.description}
+💰 Amount: ${amount}
+🏷️ Category: ${categoryDisplay}
+
+${parsed.categorySource === 'ai' ? '🤖 AI detected this category. ' : ''}Choose the correct category:`;
+  }
 
   return `📋 *Expense Detected*
 
@@ -494,7 +530,55 @@ telegramRoutes.post('/webhook', async (c) => {
         await answerCallbackQuery(botToken, query.id, '❌ Please /link your account first');
         return c.json({ ok: true });
       }
-      
+
+      // Handle category selection (format: "cat_MSGID_AMOUNT_CATEGORY")
+      if (query.data?.startsWith('cat_')) {
+        const parts = query.data.split('_');
+        if (parts.length < 4) {
+          await answerCallbackQuery(botToken, query.id, '❌ Invalid data');
+          return c.json({ ok: true });
+        }
+
+        const originalMessageId = parseInt(parts[1]);
+        const amount = parseInt(parts[2]);
+        const selectedCategory = parts.slice(3).join('_'); // Handle categories with underscores
+
+        // Extract description from message
+        const messageText = query.message?.text || '';
+        const descMatch = messageText.match(/📝 Description: (.+)/m);
+        const description = descMatch ? descMatch[1].split('\n')[0].trim() : 'expense';
+
+        const parsed: ParsedExpense = {
+          raw: description,
+          description,
+          amount,
+          category: selectedCategory,
+          confidence: 0.9
+        };
+
+        // Update message to show month selection
+        await editMessageText(
+          botToken,
+          chatId,
+          messageId,
+          formatExpensePreview(parsed, false)
+        );
+
+        // Send month selection inline keyboard
+        await fetch(`https://api.telegram.org/bot${botToken}/editMessageReplyMarkup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: createMonthKeyboard(parsed, originalMessageId)
+          }),
+        });
+
+        await answerCallbackQuery(botToken, query.id, `✅ Category: ${selectedCategory}`);
+        return c.json({ ok: true });
+      }
+
       // Parse callback data (format: "m_2026-February_30000_MSGID_Food")
       if (query.data?.startsWith('m_')) {
         const parts = query.data.split('_');
@@ -692,12 +776,15 @@ telegramRoutes.post('/webhook', async (c) => {
     parsed.category = enhancedCategory.category;
     parsed.categorySource = enhancedCategory.source;
 
-    // Send month selection (expense data encoded in buttons)
+    // Get user's categories for selection
+    const userCategories = await getUserCategories(db, user.id as number);
+
+    // Send category selection first (new improved flow)
     await sendMessage(
       botToken,
       chatId,
-      formatExpensePreview(parsed),
-      { reply_markup: createMonthKeyboard(parsed, message.message_id) }
+      formatExpensePreview(parsed, true),
+      { reply_markup: createCategoryKeyboard(userCategories, message.message_id, parsed.amount) }
     );
 
     return c.json({ ok: true });

@@ -66,7 +66,7 @@ export function UserNav({ onLogout, onExport, onImport, onCopyPreviousMonth }: U
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem className="cursor-pointer" asChild>
-            <a href="https://rich-bobcat-66.accounts.dev/user" target="_blank" rel="noopener noreferrer">
+            <a href="https://accounts.jankerzone.com/user" target="_blank" rel="noopener noreferrer">
               <User className="mr-2 h-4 w-4 text-purple-600" />
               <span>Profile</span>
             </a>

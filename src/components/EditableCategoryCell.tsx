@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
 
 interface EditableCategoryCellProps {
   value: string;
@@ -10,15 +10,22 @@ interface EditableCategoryCellProps {
   getCategoryColor?: (category: string) => string;
 }
 
-export const EditableCategoryCell = ({ 
-  value, 
-  categories, 
+export const EditableCategoryCell = ({
+  value,
+  categories,
   onSave,
   getCategoryColor = () => ''
 }: EditableCategoryCellProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Check if category is uncategorized or doesn't exist in the categories list
+  const isUncategorized = !value ||
+                          value === '' ||
+                          value.toLowerCase() === 'uncategorized' ||
+                          value.toLowerCase() === 'others' ||
+                          !categories.includes(value); // Category doesn't exist in valid list
 
   useEffect(() => {
     setEditValue(value);
@@ -38,11 +45,16 @@ export const EditableCategoryCell = ({
   if (!isEditing) {
     return (
       <Badge
-        variant="secondary"
-        className={`cursor-pointer transition-colors hover:opacity-80 ${getCategoryColor(value)}`}
+        variant={isUncategorized ? "destructive" : "secondary"}
+        className={`cursor-pointer transition-colors hover:opacity-80 gap-1 ${
+          isUncategorized
+            ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300'
+            : getCategoryColor(value)
+        }`}
         onClick={() => setIsEditing(true)}
       >
-        {value}
+        {isUncategorized && <AlertCircle className="h-3 w-3" />}
+        {value || 'Uncategorized'}
       </Badge>
     );
   }
@@ -69,15 +81,21 @@ export const EditableCategoryCell = ({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {categories.map((category) => (
-            <SelectItem 
-              key={category} 
-              value={category}
-              className={getCategoryColor(category)}
-            >
-              {category}
-            </SelectItem>
-          ))}
+          {categories.length === 0 ? (
+            <div className="px-2 py-1.5 text-xs text-gray-500">
+              No categories available
+            </div>
+          ) : (
+            categories.map((category) => (
+              <SelectItem
+                key={category}
+                value={category}
+                className={getCategoryColor(category)}
+              >
+                {category}
+              </SelectItem>
+            ))
+          )}
         </SelectContent>
       </Select>
       
