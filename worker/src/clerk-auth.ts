@@ -5,31 +5,32 @@ type Bindings = {
   DB: D1Database;
   CLERK_SECRET_KEY: string;
   CLERK_PUBLISHABLE_KEY: string;
+  CLERK_PUBLISHABLE_KEY_DEV?: string;
 };
 
-// Cache for JWKS
-let jwksCache: jose.JWTVerifyGetKey | null = null;
-let jwksCacheTime = 0;
+// Cache for JWKS (keyed by publishable key to support multiple Clerk instances)
+const jwksCache = new Map<string, { jwks: jose.JWTVerifyGetKey; time: number }>();
 const JWKS_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 
 async function getJWKS(publishableKey: string): Promise<jose.JWTVerifyGetKey> {
   const now = Date.now();
-  if (jwksCache && now - jwksCacheTime < JWKS_CACHE_DURATION) {
-    return jwksCache;
+  const cached = jwksCache.get(publishableKey);
+  if (cached && now - cached.time < JWKS_CACHE_DURATION) {
+    return cached.jwks;
   }
 
   // Extract the frontend API domain from the publishable key
-  // pk_test_xxx format where xxx is base64 encoded domain
+  // pk_test_xxx or pk_live_xxx format where xxx is base64 encoded domain
   const keyPart = publishableKey.replace('pk_test_', '').replace('pk_live_', '');
   const frontendApi = atob(keyPart).replace(/[^a-zA-Z0-9.-]/g, ''); // Remove any non-domain characters
 
   // Use Clerk's JWKS endpoint
   const jwksUrl = new URL(`https://${frontendApi}/.well-known/jwks.json`);
 
-  jwksCache = jose.createRemoteJWKSet(jwksUrl);
-  jwksCacheTime = now;
+  const jwks = jose.createRemoteJWKSet(jwksUrl);
+  jwksCache.set(publishableKey, { jwks, time: now });
 
-  return jwksCache;
+  return jwks;
 }
 
 export interface ClerkJWTPayload {
@@ -78,23 +79,25 @@ export function clerkAuth() {
     }
 
     const token = authHeader.substring(7);
-    const publishableKey = c.env.CLERK_PUBLISHABLE_KEY;
 
-    if (!publishableKey) {
-      console.error('CLERK_PUBLISHABLE_KEY not configured');
+    // Try production key first, then dev key
+    const keys = [c.env.CLERK_PUBLISHABLE_KEY, c.env.CLERK_PUBLISHABLE_KEY_DEV].filter(Boolean);
+
+    if (keys.length === 0) {
+      console.error('No CLERK_PUBLISHABLE_KEY configured');
       return c.json({ error: 'Server configuration error' }, 500);
     }
 
-    const payload = await verifyClerkToken(token, publishableKey);
-
-    if (!payload) {
-      return c.json({ error: 'Invalid or expired token' }, 401);
+    for (const key of keys) {
+      const payload = await verifyClerkToken(token, key);
+      if (payload) {
+        c.set('clerkUser', payload);
+        await next();
+        return;
+      }
     }
 
-    // Set the Clerk user info in context
-    c.set('clerkUser', payload);
-
-    await next();
+    return c.json({ error: 'Invalid or expired token' }, 401);
   };
 }
 
