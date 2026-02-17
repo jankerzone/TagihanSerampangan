@@ -26,7 +26,9 @@ import {
   Trash2, 
   Calendar as CalendarIcon,
   Filter,
-  ArrowLeft
+  ArrowLeft,
+  Download,
+  Upload
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { t } from '@/lib/utils';
@@ -95,6 +97,18 @@ const Expenses = () => {
     }
   });
 
+  // Bulk save mutation (for import)
+  const saveDataMutation = useMutation({
+    mutationFn: (newData: any) => api.data.saveMonthData(selectedMonth, newData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monthData', selectedMonth] });
+      showSuccess('Data imported successfully');
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to save data");
+    }
+  });
+
   const allExpenses = useMemo(() => {
     if (!monthData?.expenses) return [];
     
@@ -115,6 +129,86 @@ const Expenses = () => {
   const totalFilteredAmount = useMemo(() => {
     return filteredExpenses.reduce((sum: number, expense: any) => sum + (expense.amount || 0), 0);
   }, [filteredExpenses]);
+
+  // Export Expenses
+  const handleExportExpenses = () => {
+    try {
+      const exportData = {
+        incomeSources: monthData?.incomeSources || [],
+        savingList: monthData?.savingList || [],
+        budgetingList: monthData?.budgetingList || [],
+        expenses: monthData?.expenses || [],
+        exportDate: new Date().toISOString(),
+        monthKey: selectedMonth
+      };
+      
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `expenses-${selectedMonth}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showSuccess("Expenses exported successfully!");
+    } catch (error) {
+      showError("Failed to export expenses");
+      console.error("Export error:", error);
+    }
+  };
+
+  const handleImportExpenses = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!window.confirm(`Importing will REPLACE all data for ${selectedMonth}. Continue?`)) {
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const parsedData = JSON.parse(content);
+
+        // Initial prep with fallback to existing data if missing in file
+        const importData = {
+          incomeSources: parsedData.incomeSources || monthData?.incomeSources || [],
+          savingList: parsedData.savingList || monthData?.savingList || [],
+          budgetingList: parsedData.budgetingList || monthData?.budgetingList || [],
+          expenses: (parsedData.expenses && Array.isArray(parsedData.expenses)) 
+            ? parsedData.expenses.map((item: any) => ({
+                ...item,
+                id: item.id || `exp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                month_key: selectedMonth
+              }))
+            : (monthData?.expenses || [])
+        };
+
+        // If the file explicitly lacks expenses but we have them, confirm with user
+        if (!parsedData.expenses && monthData?.expenses?.length > 0) {
+           if (!window.confirm("The imported file contains no expense data. Do you want to KEEP your existing expenses? (Cancel will DELETE them)")) {
+              importData.expenses = [];
+           }
+        }
+
+        saveDataMutation.mutate(importData);
+      } catch (error: any) {
+        showError(`Failed to read file: ${error.message}`);
+        console.error("Import error:", error);
+      }
+    };
+    
+    reader.onerror = () => {
+      showError("Failed to read file");
+    };
+    
+    reader.readAsText(file);
+    event.target.value = '';
+  };
 
   // Generate month options (last 12 months)
   const monthOptions = useMemo(() => {
@@ -148,20 +242,38 @@ const Expenses = () => {
               Daily Expenses
             </h1>
           </div>
-          
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-[180px]">
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="Select Month" />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={handleExportExpenses}>
+              <Download className="h-4 w-4 mr-1" />
+              Export
+            </Button>
+            <div className="relative">
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImportExpenses}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+              <Button size="sm" variant="outline">
+                <Upload className="h-4 w-4 mr-1" />
+                Import
+              </Button>
+            </div>
+
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-[180px]">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Select Month" />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </header>
 

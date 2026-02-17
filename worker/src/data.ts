@@ -50,7 +50,7 @@ app.post('/:monthKey', async (c) => {
     const monthKey = c.req.param('monthKey');
     const data = await c.req.json();
 
-    const { incomeSources, savingList, budgetingList } = data;
+    const { incomeSources, savingList, budgetingList, expenses } = data;
 
     // Transaction to replace data
     const batch = [];
@@ -59,6 +59,11 @@ app.post('/:monthKey', async (c) => {
     batch.push(c.env.DB.prepare('DELETE FROM income_sources WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
     batch.push(c.env.DB.prepare('DELETE FROM savings WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
     batch.push(c.env.DB.prepare('DELETE FROM budget_items WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
+    
+    // Only delete expenses if new expenses are provided in the payload (to preserve existing behavior for other clients)
+    if (expenses !== undefined) {
+        batch.push(c.env.DB.prepare('DELETE FROM daily_expenses WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
+    }
 
     // 2. Insert new data
     if (incomeSources && incomeSources.length > 0) {
@@ -85,6 +90,25 @@ app.post('/:monthKey', async (c) => {
         );
         for (const item of budgetingList) {
             batch.push(stmt.bind(item.id, userId, monthKey, item.name, item.allocation, item.realization, item.category));
+        }
+    }
+
+    if (expenses && expenses.length > 0) {
+        const stmt = c.env.DB.prepare(
+            'INSERT INTO daily_expenses (id, user_id, month_key, date, description, amount, category, source, telegram_message_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+        for (const item of expenses) {
+            batch.push(stmt.bind(
+                item.id, 
+                userId, 
+                monthKey, 
+                item.date, 
+                item.description, 
+                item.amount, 
+                item.category || 'Others',
+                item.source || 'manual',
+                item.telegram_message_id || null
+            ));
         }
     }
 

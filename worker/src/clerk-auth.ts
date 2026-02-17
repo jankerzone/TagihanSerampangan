@@ -147,6 +147,19 @@ export async function getOrCreateInternalUser(
 
   // Create new user
   const username = email || `clerk_${clerkUserId.substring(0, 8)}`;
+  
+  // Try to find if username already exists (edge case where email wasn't found but username collision might occur)
+  const userCheck = await db.prepare('SELECT id FROM users WHERE username = ?').bind(username).first<{id: number}>();
+  
+  if (userCheck) {
+      // User exists but wasn't caught by email check? Or username collision. Link it.
+      await db
+        .prepare('INSERT INTO clerk_user_mapping (clerk_user_id, internal_user_id, email) VALUES (?, ?, ?)')
+        .bind(clerkUserId, userCheck.id, email || null)
+        .run();
+      return { id: userCheck.id, username, isNew: false };
+  }
+
   const result = await db
     .prepare('INSERT INTO users (username, password_hash) VALUES (?, ?) RETURNING id')
     .bind(username, 'clerk_managed') // No password needed for Clerk users
