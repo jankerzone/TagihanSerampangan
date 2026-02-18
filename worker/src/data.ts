@@ -66,10 +66,10 @@ app.post('/:monthKey', async (c) => {
             batch.push(c.env.DB.prepare('DELETE FROM daily_expenses WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
         }
 
-        // 2. Insert new data
+        // 2. Insert new data (using UPSERT to handle potential ID conflicts)
         if (incomeSources && incomeSources.length > 0) {
             const stmt = c.env.DB.prepare(
-                'INSERT INTO income_sources (id, user_id, month_key, name, amount) VALUES (?, ?, ?, ?, ?)'
+                'INSERT INTO income_sources (id, user_id, month_key, name, amount) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, amount=excluded.amount'
             );
             for (const item of incomeSources) {
                 batch.push(stmt.bind(item.id, userId, monthKey, item.name, item.amount));
@@ -78,7 +78,7 @@ app.post('/:monthKey', async (c) => {
 
         if (savingList && savingList.length > 0) {
             const stmt = c.env.DB.prepare(
-                'INSERT INTO savings (id, user_id, month_key, name, amount) VALUES (?, ?, ?, ?, ?)'
+                'INSERT INTO savings (id, user_id, month_key, name, amount) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, amount=excluded.amount'
             );
             for (const item of savingList) {
                 batch.push(stmt.bind(item.id, userId, monthKey, item.name, item.amount));
@@ -87,7 +87,7 @@ app.post('/:monthKey', async (c) => {
 
         if (budgetingList && budgetingList.length > 0) {
             const stmt = c.env.DB.prepare(
-                'INSERT INTO budget_items (id, user_id, month_key, name, allocation, realization, category) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO budget_items (id, user_id, month_key, name, allocation, realization, category) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, allocation=excluded.allocation, realization=excluded.realization, category=excluded.category'
             );
             for (const item of budgetingList) {
                 batch.push(stmt.bind(item.id, userId, monthKey, item.name, item.allocation, item.realization, item.category));
@@ -96,7 +96,7 @@ app.post('/:monthKey', async (c) => {
 
         if (expenses && expenses.length > 0) {
             const stmt = c.env.DB.prepare(
-                'INSERT INTO daily_expenses (id, user_id, month_key, date, description, amount, category, source, telegram_message_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO daily_expenses (id, user_id, month_key, date, description, amount, category, source, telegram_message_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET date=excluded.date, description=excluded.description, amount=excluded.amount, category=excluded.category, source=excluded.source'
             );
             for (const item of expenses) {
                 batch.push(stmt.bind(
