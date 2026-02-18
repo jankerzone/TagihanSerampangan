@@ -46,75 +46,80 @@ app.get('/:monthKey', async (c) => {
 
 // Save data for a specific month (Full Replace Strategy for simplicity)
 app.post('/:monthKey', async (c) => {
-    const userId = c.get('jwtPayload').id;
-    const monthKey = c.req.param('monthKey');
-    const data = await c.req.json();
+    try {
+        const userId = c.get('jwtPayload').id;
+        const monthKey = c.req.param('monthKey');
+        const data = await c.req.json();
 
-    const { incomeSources, savingList, budgetingList, expenses } = data;
+        const { incomeSources, savingList, budgetingList, expenses } = data;
 
-    // Transaction to replace data
-    const batch = [];
+        // Transaction to replace data
+        const batch = [];
 
-    // 1. Delete existing data for this month
-    batch.push(c.env.DB.prepare('DELETE FROM income_sources WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
-    batch.push(c.env.DB.prepare('DELETE FROM savings WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
-    batch.push(c.env.DB.prepare('DELETE FROM budget_items WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
-    
-    // Only delete expenses if new expenses are provided in the payload (to preserve existing behavior for other clients)
-    if (expenses !== undefined) {
-        batch.push(c.env.DB.prepare('DELETE FROM daily_expenses WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
-    }
-
-    // 2. Insert new data
-    if (incomeSources && incomeSources.length > 0) {
-        const stmt = c.env.DB.prepare(
-            'INSERT INTO income_sources (id, user_id, month_key, name, amount) VALUES (?, ?, ?, ?, ?)'
-        );
-        for (const item of incomeSources) {
-            batch.push(stmt.bind(item.id, userId, monthKey, item.name, item.amount));
+        // 1. Delete existing data for this month
+        batch.push(c.env.DB.prepare('DELETE FROM income_sources WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
+        batch.push(c.env.DB.prepare('DELETE FROM savings WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
+        batch.push(c.env.DB.prepare('DELETE FROM budget_items WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
+        
+        // Only delete expenses if new expenses are provided in the payload (to preserve existing behavior for other clients)
+        if (expenses !== undefined) {
+            batch.push(c.env.DB.prepare('DELETE FROM daily_expenses WHERE user_id = ? AND month_key = ?').bind(userId, monthKey));
         }
-    }
 
-    if (savingList && savingList.length > 0) {
-        const stmt = c.env.DB.prepare(
-            'INSERT INTO savings (id, user_id, month_key, name, amount) VALUES (?, ?, ?, ?, ?)'
-        );
-        for (const item of savingList) {
-            batch.push(stmt.bind(item.id, userId, monthKey, item.name, item.amount));
+        // 2. Insert new data
+        if (incomeSources && incomeSources.length > 0) {
+            const stmt = c.env.DB.prepare(
+                'INSERT INTO income_sources (id, user_id, month_key, name, amount) VALUES (?, ?, ?, ?, ?)'
+            );
+            for (const item of incomeSources) {
+                batch.push(stmt.bind(item.id, userId, monthKey, item.name, item.amount));
+            }
         }
-    }
 
-    if (budgetingList && budgetingList.length > 0) {
-        const stmt = c.env.DB.prepare(
-            'INSERT INTO budget_items (id, user_id, month_key, name, allocation, realization, category) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        );
-        for (const item of budgetingList) {
-            batch.push(stmt.bind(item.id, userId, monthKey, item.name, item.allocation, item.realization, item.category));
+        if (savingList && savingList.length > 0) {
+            const stmt = c.env.DB.prepare(
+                'INSERT INTO savings (id, user_id, month_key, name, amount) VALUES (?, ?, ?, ?, ?)'
+            );
+            for (const item of savingList) {
+                batch.push(stmt.bind(item.id, userId, monthKey, item.name, item.amount));
+            }
         }
-    }
 
-    if (expenses && expenses.length > 0) {
-        const stmt = c.env.DB.prepare(
-            'INSERT INTO daily_expenses (id, user_id, month_key, date, description, amount, category, source, telegram_message_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        );
-        for (const item of expenses) {
-            batch.push(stmt.bind(
-                item.id, 
-                userId, 
-                monthKey, 
-                item.date, 
-                item.description, 
-                item.amount, 
-                item.category || 'Others',
-                item.source || 'manual',
-                item.telegram_message_id || null
-            ));
+        if (budgetingList && budgetingList.length > 0) {
+            const stmt = c.env.DB.prepare(
+                'INSERT INTO budget_items (id, user_id, month_key, name, allocation, realization, category) VALUES (?, ?, ?, ?, ?, ?, ?)'
+            );
+            for (const item of budgetingList) {
+                batch.push(stmt.bind(item.id, userId, monthKey, item.name, item.allocation, item.realization, item.category));
+            }
         }
+
+        if (expenses && expenses.length > 0) {
+            const stmt = c.env.DB.prepare(
+                'INSERT INTO daily_expenses (id, user_id, month_key, date, description, amount, category, source, telegram_message_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            );
+            for (const item of expenses) {
+                batch.push(stmt.bind(
+                    item.id, 
+                    userId, 
+                    monthKey, 
+                    item.date, 
+                    item.description, 
+                    item.amount, 
+                    item.category || 'Others',
+                    item.source || 'manual',
+                    item.telegram_message_id || null
+                ));
+            }
+        }
+
+        await c.env.DB.batch(batch);
+
+        return c.json({ success: true });
+    } catch (error: any) {
+        console.error('Import Error:', error);
+        return c.json({ error: error.message || 'Failed to save data' }, 500);
     }
-
-    await c.env.DB.batch(batch);
-
-    return c.json({ success: true });
 });
 
 // Get Global Settings

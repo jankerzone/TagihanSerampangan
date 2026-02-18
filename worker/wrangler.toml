@@ -6,7 +6,8 @@ compatibility_date = "2024-04-05"
 [[d1_databases]]
 binding = "DB"
 database_name = "tagihan-db"
-database_id = "3e7010fb-7202-41e3-b2ba-5586e5a15c4e" # User will need to replace this after creating the DB
+database_id = "3e7010fb-7202-41e3-b2ba-5586e5a15c4e"
+preview_database_id = "83ceb487-589b-4f89-9b7d-59d962396651" # New Dev DB
 
 [vars]
 CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsuamFua2Vyem9uZS5jb20k"
