@@ -121,19 +121,39 @@ function escapeMarkdown(text: string): string {
 // ============================================================================
 
 async function getUserCategories(db: D1Database, userId: number): Promise<string[]> {
-  const result = await db.prepare(
-    'SELECT DISTINCT category FROM daily_expenses WHERE user_id = ? ORDER BY category'
-  ).bind(userId).all();
+  // Use the SAME configured category list the web app shows (global_settings),
+  // so the bot offers every category the user set up — not just ones already used.
+  const settingsRow = await db.prepare(
+    'SELECT settings_json FROM global_settings WHERE user_id = ?'
+  ).bind(userId).first();
 
-  const categories = result.results?.map((r: any) => r.category as string) || [];
-
-  // If user has no categories yet, provide defaults
-  if (categories.length === 0) {
-    return ['Food', 'Transport', 'Utilities', 'Health', 'Education', 'Shopping', 'Entertainment', 'Others'];
+  let categories: string[] = [];
+  if (settingsRow?.settings_json) {
+    try {
+      const parsed = JSON.parse(settingsRow.settings_json as string);
+      if (Array.isArray(parsed.categories)) {
+        categories = parsed.categories.filter((c: any) => typeof c === 'string' && c.trim());
+      }
+    } catch {
+      // ponytail: malformed settings_json -> fall through to expense-derived list
+    }
   }
 
-  // Always ensure "Others" exists
-  if (!categories.includes('Others')) {
+  // Fallback: categories already used in expenses (legacy behaviour)
+  if (categories.length === 0) {
+    const result = await db.prepare(
+      'SELECT DISTINCT category FROM daily_expenses WHERE user_id = ? ORDER BY category'
+    ).bind(userId).all();
+    categories = result.results?.map((r: any) => r.category as string).filter(Boolean) || [];
+  }
+
+  // Final fallback: sensible defaults
+  if (categories.length === 0) {
+    return ['Zakat & Donasi', 'Hunian', 'Transportasi', 'Belanja Rutin RT', 'Pengeluaran lain'];
+  }
+
+  // Always ensure a catch-all exists for the AI's "no match" case
+  if (!categories.includes('Others') && !categories.includes('Pengeluaran lain')) {
     categories.push('Others');
   }
 
@@ -143,7 +163,8 @@ async function getUserCategories(db: D1Database, userId: number): Promise<string
 async function detectCategoryWithAI(
   ai: any,
   description: string,
-  userCategories: string[]
+  userCategories: string[],
+  catchAll: string = 'Others'
 ): Promise<{ category: string; source: 'ai' }> {
   try {
     const prompt = `You are an expense categorization assistant.
@@ -178,13 +199,18 @@ Category:`;
     );
 
     return {
-      category: matchedCategory || 'Others',
+      category: matchedCategory || catchAll,
       source: 'ai'
     };
   } catch (error) {
     console.error('AI categorization error:', error);
-    return { category: 'Others', source: 'ai' };
+    return { category: catchAll, source: 'ai' };
   }
+}
+
+// Pick the user's own catch-all category (their list is Indonesian) instead of literal "Others".
+function pickCatchAll(cats: string[]): string {
+  return cats.find(c => /pengeluaran lain|lainnya|^others$/i.test(c)) || cats[cats.length - 1] || 'Others';
 }
 
 async function detectCategoryEnhanced(
@@ -193,23 +219,26 @@ async function detectCategoryEnhanced(
   db: D1Database,
   ai?: any
 ): Promise<{ category: string; source: 'keyword' | 'ai' | 'default' }> {
-  // Step 1: Try keyword matching (fast, free)
+  const userCategories = await getUserCategories(db, userId);
+  const catchAll = pickCatchAll(userCategories);
+
+  // Step 1: keyword matching (fast, free) — but only trust it if the hit is
+  // actually one of the user's configured categories.
   const keywordCategory = detectCategory(description);
-  if (keywordCategory !== 'Others') {
+  if (keywordCategory !== 'Others' && userCategories.includes(keywordCategory)) {
     return { category: keywordCategory, source: 'keyword' };
   }
 
-  // Step 2: If AI available, use it with user's categories
+  // Step 2: If AI available, use it with user's real categories
   if (ai) {
-    const userCategories = await getUserCategories(db, userId);
-    const aiResult = await detectCategoryWithAI(ai, description, userCategories);
-    if (aiResult.category !== 'Others') {
+    const aiResult = await detectCategoryWithAI(ai, description, userCategories, catchAll);
+    if (aiResult.category !== catchAll) {
       return aiResult;
     }
   }
 
-  // Step 3: Fallback to Others
-  return { category: 'Others', source: 'default' };
+  // Step 3: Fallback to the user's catch-all
+  return { category: catchAll, source: 'default' };
 }
 
 export function parseExpense(text: string): ParsedExpense {

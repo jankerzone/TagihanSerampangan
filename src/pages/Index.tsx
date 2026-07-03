@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
-import { PlusCircle, Trash2, Settings, LogOut, Loader2, Download, Upload, ListPlus, CheckSquare, ArrowUpDown, PiggyBank, PieChartIcon, BarChart3 } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, Settings, LogOut, Loader2, Download, Upload, ListPlus, CheckSquare, ArrowUpDown, PiggyBank, PieChartIcon, BarChart3 } from 'lucide-react';
 
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -127,6 +127,11 @@ const Index = () => {
   const [newIncome, setNewIncome] = useState({ name: '', amount: '' });
   const [newSaving, setNewSaving] = useState({ name: '', amount: '' });
   const [newBudget, setNewBudget] = useState({ name: '', allocation: '', category: "Lainnya" });
+
+  // Edit Realization dialog state
+  const [isEditRealizationOpen, setIsEditRealizationOpen] = useState(false);
+  const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
+  const [newRealization, setNewRealization] = useState('');
 
   // Bulk Add State
   const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
@@ -651,6 +656,23 @@ const Index = () => {
     showSuccess("All realization amounts set to match allocation.");
   };
 
+  const openEditRealization = (id: string, currentRealization: number) => {
+    setSelectedBudgetId(id);
+    setNewRealization(currentRealization.toString());
+    setIsEditRealizationOpen(true);
+  };
+
+  const handleEditRealization = async () => {
+    if (!selectedBudgetId) return;
+    await updateBudgetItemMutation.mutateAsync({
+      id: selectedBudgetId,
+      updates: { realization: parseInt(newRealization) || 0 },
+    });
+    setIsEditRealizationOpen(false);
+    setNewRealization('');
+    setSelectedBudgetId(null);
+  };
+
   const handleLogout = async () => {
     await signOut();
     navigate('/sign-in');
@@ -817,7 +839,7 @@ const Index = () => {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:hidden">
               <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800 border-blue-200 dark:border-gray-600">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2 text-gray-900 dark:text-gray-100">
@@ -887,7 +909,7 @@ const Index = () => {
             </div>
 
             {data.budgetingList.length > 0 && (
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 print:hidden">
                 <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-700 dark:to-gray-800 border-green-200 dark:border-gray-600">
                   <CardContent className="p-4">
                     <div className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">Under Budget Items</div>
@@ -1247,13 +1269,22 @@ const Index = () => {
                               </span>
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteItem('budget', budget.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openEditRealization(budget.id, budget.realization)}
+                                >
+                                  <Edit3 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteItem('budget', budget.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -1265,6 +1296,55 @@ const Index = () => {
             </Card>
           </div>
         </div>
+
+        {/* Edit Realization Dialog */}
+        <Dialog open={isEditRealizationOpen} onOpenChange={setIsEditRealizationOpen}>
+          <DialogContent className="print:hidden">
+            <DialogHeader>
+              <DialogTitle>{t('editRealization')}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {(() => {
+                const selectedBudget = data?.budgetingList?.find((item: BudgetItem) => item.id === selectedBudgetId);
+                return selectedBudget ? (
+                  <>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 italic">
+                      Allocation: {formatCurrency(selectedBudget.allocation)}
+                    </div>
+                    <div>
+                      <Label htmlFor="realizationAmount">{t('realizationAmount')}</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="realizationAmount"
+                          type="number"
+                          value={newRealization}
+                          onChange={(e) => setNewRealization(e.target.value)}
+                          placeholder="e.g., 325000"
+                          className="flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => setNewRealization(selectedBudget.allocation.toString())}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          Set to 100%
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                ) : null;
+              })()}
+              <Button
+                onClick={handleEditRealization}
+                disabled={updateBudgetItemMutation.isPending}
+                className="w-full"
+              >
+                {updateBudgetItemMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {t('updateRealization')}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
       </div>
     </div>

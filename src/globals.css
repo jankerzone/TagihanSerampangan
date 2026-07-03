@@ -99,3 +99,28 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ponytail: PDF export = browser print-to-PDF. No lib; just hide chrome and keep colors. */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  /* Hide nav header and all action buttons (add/delete/bulk/sort/import/export) */
+  header,
+  button {
+    display: none !important;
+  }
+  /* Hide the trailing "Actions" column (last col in both income & expenses tables) */
+  table th:last-child,
+  table td:last-child {
+    display: none !important;
+  }
+  /* Hide sort-arrow icons sitting in table headers */
+  thead svg {
+    display: none !important;
+  }
+}

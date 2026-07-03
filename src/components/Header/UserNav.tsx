@@ -9,7 +9,8 @@ import {
   Download,
   Upload,
   Copy as CopyIcon,
-  Receipt
+  Receipt,
+  Printer
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -105,6 +106,10 @@ export function UserNav({ onLogout, onExport, onImport, onCopyPreviousMonth }: U
               <span>Export Data</span>
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem className="cursor-pointer" onClick={() => window.print()}>
+            <Printer className="mr-2 h-4 w-4 text-rose-600" />
+            <span>Export to PDF</span>
+          </DropdownMenuItem>
           {onImport && (
             <>
               <input
