@@ -1,4 +1,5 @@
 # 💰 TagihanSerampangan
+[![Ask DeepWiki](https://devin.ai/assets/askdeepwiki.png)](https://deepwiki.com/jankerzone/TagihanSerampangan)
 
 A beautiful, modern expense tracking and budget management application with real-time Telegram bot integration. Track your income, expenses, savings goals, and get insights through interactive charts.
 
@@ -62,163 +63,173 @@ A beautiful, modern expense tracking and budget management application with real
 
 ### Prerequisites
 - Node.js 18+
-- npm or yarn
+- `pnpm` or another package manager
 - Cloudflare account (for deployment)
 
 ### Installation
 
-1. Clone the repository
-```bash
-git clone https://github.com/jankerzone/TagihanSerampangan.git
-cd TagihanSerampangan
-```
+1.  Clone the repository
+    ```bash
+    git clone https://github.com/jankerzone/TagihanSerampangan.git
+    cd TagihanSerampangan
+    ```
 
-2. Install dependencies
-```bash
-npm install
-cd worker && npm install && cd ..
-```
+2.  Install dependencies in both root and worker directories
+    ```bash
+    pnpm install
+    cd worker && pnpm install && cd ..
+    ```
 
-3. Set up Clerk Authentication
-- Sign up at [clerk.com](https://clerk.com)
-- Create a new application
-- Get your Publishable Key and Secret Key
+3.  Set up Clerk Authentication
+    -   Sign up at [clerk.com](https://clerk.com)
+    -   Create a new application
+    -   Get your Frontend API Key (Publishable Key) and Backend API Key (Secret Key).
 
-4. Set up environment variables
-```bash
-# Create .env for frontend
-cat > .env << EOF
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
-VITE_API_URL=http://localhost:8787
-EOF
+4.  Set up environment variables
+    -   Create a `.env` file in the root directory for the frontend:
+        ```env
+        VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
+        VITE_API_URL=http://localhost:8787
+        ```
+    -   Update `worker/wrangler.toml` with your Clerk keys:
+        ```toml
+        [vars]
+        CLERK_PUBLISHABLE_KEY = "pk_live_your_clerk_prod_key"
+        CLERK_PUBLISHABLE_KEY_DEV = "pk_test_your_clerk_dev_key"
+        ```
+    -   Set your Clerk secret key for the worker:
+        ```bash
+        cd worker
+        echo "your_clerk_secret_key" | npx wrangler secret put CLERK_SECRET_KEY
+        cd ..
+        ```
 
-# Configure worker/wrangler.toml with Clerk keys
-```
-
-4. Start development server
-```bash
-npm run dev
-```
-
-5. Start Cloudflare Workers (in another terminal)
-```bash
-cd worker
-npm run dev
-```
+5.  Start development servers
+    -   In one terminal, start the backend worker:
+        ```bash
+        cd worker
+        pnpm run dev
+        ```
+    -   In another terminal, start the frontend:
+        ```bash
+        pnpm run dev
+        ```
 
 Your app should now be running at:
-- Frontend: `http://localhost:8080`
+- Frontend: `http://localhost:8081`
 - Backend API: `http://localhost:8787`
 
 ### Building for Production
 ```bash
-npm run build
+pnpm build
 ```
 
 ### Deploying to Cloudflare
 
-1. Deploy the worker:
-```bash
-cd worker
-npx wrangler deploy
-```
+1.  Deploy the worker:
+    ```bash
+    cd worker
+    npx wrangler deploy
+    ```
 
-2. Update `.env.production` with your worker URL:
-```bash
-VITE_API_URL=https://your-worker.your-subdomain.workers.dev
-```
+2.  Update your frontend `.env.production` file (create it if it doesn't exist) with your worker's production URL:
+    ```env
+    VITE_API_URL=https://your-worker.your-subdomain.workers.dev
+    ```
 
-3. Build and deploy frontend to Cloudflare Pages:
-```bash
-npm run build
-npx wrangler pages deploy dist
-```
+3.  Build and deploy the frontend to Cloudflare Pages:
+    ```bash
+    pnpm deploy
+    ```
 
 ## 📱 Telegram Bot Setup
 
-1. Create a bot via [@BotFather](https://t.me/BotFather)
-2. Get your bot token
-3. Add to `worker/wrangler.toml`:
-```toml
-[vars]
-TELEGRAM_BOT_TOKEN = "your_bot_token_here"
-```
-4. Set webhook:
-```bash
-curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://your-worker.workers.dev/telegram/webhook"
-```
-5. Link your account in Settings → Telegram Bot
+1.  Create a bot via [@BotFather](https://t.me/BotFather) and get your bot token.
+2.  Add the token to `worker/wrangler.toml`:
+    ```toml
+    [vars]
+    # ... other vars
+    TELEGRAM_BOT_TOKEN = "your_bot_token_here"
+    ```
+3.  Set your Telegram secret for webhook verification (any random string):
+    ```bash
+    cd worker
+    echo "your_random_secret_string" | npx wrangler secret put TELEGRAM_SECRET_TOKEN
+    cd ..
+    ```
+4.  Deploy your worker to get its URL (`npx wrangler deploy`).
+5.  Set the webhook URL by sending a request (replace `<YOUR_BOT_TOKEN>` and the URL):
+    ```bash
+    curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=https://your-worker.workers.dev/telegram/webhook&secret_token=<YOUR_RANDOM_SECRET>"
+    ```
+6.  Link your account in **Settings → Link Telegram Bot** in the web app.
 
 ## 🎯 Usage
 
 ### Adding Income
-1. Navigate to dashboard
-2. Click "+" in Income Sources section
-3. Enter name and amount
-4. Data saves automatically
+1.  Navigate to the dashboard.
+2.  Click the "+" button in the **Income Sources** section.
+3.  Enter the name and amount.
+4.  Data saves automatically.
 
-### Setting Budget
-1. Click "Add" in Expenses section
-2. Enter expense name, allocation, and category
-3. Track realization vs. allocation
+### Setting a Budget
+1.  Click the "+" button in the **Expenses List** section.
+2.  Enter the expense name, allocation amount, and choose a category.
+3.  Track realization vs. allocation as you update expenses.
 
-### Using Telegram Bot
-1. Go to Settings → Telegram Bot
-2. Click "Generate Link Code"
-3. Copy the `/link CODE` command
-4. Send to your Telegram bot
-5. Start logging expenses on-the-go!
+### Using the Telegram Bot
+1.  Go to **Settings → Link Telegram Bot**.
+2.  Click **Generate Link Code**.
+3.  Copy the `/link YOUR_CODE` command.
+4.  Send the command to your Telegram bot.
+5.  Start logging expenses on-the-go! (e.g., "beli kopi 25rb")
 
 ### Importing/Exporting Data
-1. Click user avatar (top right)
-2. Select "Export Data" to download JSON backup
-3. Select "Import Data" to restore from backup
-4. Select "Copy Previous Month" to duplicate last month's budget
+1.  Click your user avatar in the top-right corner.
+2.  Select **Export Data** to download a JSON backup of the current month.
+3.  Select **Import Data** to restore from a backup.
+4.  Select **Copy Previous Month** to duplicate last month's budget structure.
 
 ## 🎨 Customization
 
 ### Dashboard Colors
-Settings → Dashboard Colors → Choose from 10 gradient options for each metric card
+Go to **Settings → Dashboard Colors** and choose from 10 gradient options for each metric card.
 
-### Categories
-Settings → Expense Categories → Add/edit/delete custom categories
+### Expense Categories
+Go to **Settings → Expense Categories** to add, edit, or delete your custom categories.
 
 ### Language
-Settings → Language → English or Bahasa Indonesia
+Go to **Settings → Language** and choose between English or Bahasa Indonesia.
 
 ## 📊 Key Metrics
 
-- **Total Income** - Sum of all income sources
-- **Planned Savings** - Monthly savings contributions
-- **Available to Spend** - Total budget allocations
-- **Actual Spending** - Real expenses tracked
-- **Remaining** - Budget left for the month
+- **Total Income**: Sum of all income sources for the month.
+- **Planned Savings**: Total monthly contributions to your savings goals.
+- **Available to Spend**: Total budget allocated for expenses.
+- **Actual Spending**: Real expenses tracked for the month.
+- **Remaining**: The difference between your available budget and actual spending.
 
 ## 🔒 Security
 
-- **Clerk Authentication** - Industry-standard auth with OAuth (Google, GitHub)
-- **JWT Token Verification** - Secure API authentication
-- **HTTPS-only** - Encrypted communication
-- **Environment Variables** - Secure credential storage
-- **SQL Injection Prevention** - Prepared statements
-
-## 📸 Screenshots
-
-_Coming soon_
+- **Clerk Authentication**: Industry-standard auth with OAuth (Google, GitHub) and Magic Links.
+- **JWT Token Verification**: Secure API authentication between frontend and worker.
+- **HTTPS-only**: Encrypted communication enforced by Cloudflare.
+- **Environment Variables & Secrets**: Secure storage for credentials and API keys.
+- **SQL Injection Prevention**: Parameterized queries via Cloudflare D1 prevent SQL injection.
 
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m '✨ Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+1.  Fork the repository.
+2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3.  Commit your changes (`git commit -m '✨ Add some AmazingFeature'`).
+4.  Push to the branch (`git push origin feature/AmazingFeature`).
+5.  Open a Pull Request.
 
 ## 📄 License
 
-MIT License - feel free to use this project for personal or commercial purposes.
+This project is licensed under the MIT License.
 
 ## 👨‍💻 Author
 
@@ -226,9 +237,9 @@ MIT License - feel free to use this project for personal or commercial purposes.
 
 ## 🙏 Acknowledgments
 
-- Built with love using modern web technologies
-- Inspired by personal budget management needs
-- Community feedback and contributions
+- Built with love using modern web technologies.
+- Inspired by personal budget management needs.
+- Community feedback and contributions.
 
 ## 📝 Changelog
 
@@ -259,5 +270,3 @@ MIT License - feel free to use this project for personal or commercial purposes.
 ⭐ **Star this repo** if you find it helpful!
 
 📧 **Issues & Questions**: [Open an issue](https://github.com/jankerzone/TagihanSerampangan/issues)
-
-🔗 **Live Demo**: _Coming soon_
