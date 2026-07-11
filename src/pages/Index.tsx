@@ -41,6 +41,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserNav } from "@/components/Header/UserNav";
 import { PeriodPicker } from "@/components/Header/PeriodPicker";
 import { SavingsContributionsSection } from "@/components/dashboard/SavingsContributionsSection";
+import { ShareRecapDialog } from "@/components/ShareRecapDialog";
 import { PieChart, Pie, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // Types
@@ -1066,6 +1067,12 @@ const Index = () => {
               <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <CardTitle>{t('expensesList')}</CardTitle>
                 <div className="flex flex-wrap gap-2">
+                  <ShareRecapDialog
+                    budgetingList={data.budgetingList}
+                    month={currentMonth}
+                    year={currentYear}
+                  />
+
                   <Dialog open={isBulkAddOpen} onOpenChange={setIsBulkAddOpen}>
                     <DialogTrigger asChild>
                       <Button size="sm" variant="outline">
