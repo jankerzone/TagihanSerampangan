@@ -38,7 +38,7 @@ const Settings = () => {
     queryFn: api.settings.getGlobal,
     initialData: {
       currentYear: new Date().getFullYear(),
-      currentMonth: new Date().toLocaleString('default', { month: 'long' }),
+      currentMonth: monthNames[new Date().getMonth()],
       categories: ["Zakat", "Pajak", "Keluarga", "Rumah", "Lainnya"],
       colors: {
         income: "green-100",

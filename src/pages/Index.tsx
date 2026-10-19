@@ -120,7 +120,7 @@ const Index = () => {
 
   // Local State for UI
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [currentMonth, setCurrentMonth] = useState(new Date().toLocaleString('default', { month: 'long' }));
+  const [currentMonth, setCurrentMonth] = useState(monthNames[new Date().getMonth()]);
 
   const [isAddIncomeOpen, setIsAddIncomeOpen] = useState(false);
   const [isAddSavingOpen, setIsAddSavingOpen] = useState(false);
