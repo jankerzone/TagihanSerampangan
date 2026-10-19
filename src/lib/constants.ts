@@ -1,23 +1,3 @@
-// Color derivation helper for panel styling
-export const getDerivedColorClasses = (selectedColor: string) => {
-  const parts = selectedColor.split('-');
-  const colorName = parts[0];
-  const shade = parseInt(parts[1]);
-
-  let bgColorShade = shade + 100;
-  let textColorShade = 800;
-  let borderColorShade = shade + 200;
-
-  if (bgColorShade > 900) bgColorShade = 900;
-  if (borderColorShade > 900) borderColorShade = 900;
-
-  return {
-    bgColor: `bg-${colorName}-${bgColorShade}`,
-    textColor: `text-${colorName}-${textColorShade}`,
-    borderColor: `border-${colorName}-${borderColorShade}`
-  };
-};
-
 // Category color mapping
 export const categoryColors: Record<string, string> = {
   'Zakat': 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200',

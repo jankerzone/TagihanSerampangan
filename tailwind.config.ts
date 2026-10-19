@@ -93,10 +93,4 @@ export default {
     },
   },
   plugins: [require("tailwindcss-animate")],
-  safelist: [
-    // Panel colors are built at runtime as `bg|text|border-<color>-<shade>` (see getDerivedColorClasses)
-    {
-      pattern: /^(bg|text|border)-(green|blue|orange|red|purple|yellow|pink|teal|indigo|cyan|emerald|sky|amber|rose|fuchsia|violet|lime|slate|gray|zinc|neutral|stone)-(50|[1-9]00|950)$/,
-    },
-  ],
 } satisfies Config;

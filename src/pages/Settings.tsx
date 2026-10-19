@@ -10,6 +10,7 @@ import {
   monthNames,
   t
 } from "@/lib/utils";
+import { cardColors, defaultCardColors, getCardColor } from "@/lib/colors";
 import { showSuccess, showError } from "@/utils/toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from "@/lib/api";
@@ -40,12 +41,7 @@ const Settings = () => {
       currentYear: new Date().getFullYear(),
       currentMonth: monthNames[new Date().getMonth()],
       categories: ["Zakat", "Pajak", "Keluarga", "Rumah", "Lainnya"],
-      colors: {
-        income: "green-100",
-        budgeted_expenses: "orange-100",
-        spending: "red-100",
-        savings: "blue-100"
-      },
+      colors: defaultCardColors,
       lang: "en"
     }
   });
@@ -177,20 +173,6 @@ const Settings = () => {
     const updatedSettings = { ...settings, lang };
     updateSettings(updatedSettings);
   };
-
-  // Modern color palette with gradients and better organization
-  const colorPalette = [
-    { value: 'green-100', name: 'Emerald', from: 'from-emerald-400', to: 'to-green-600', preview: 'bg-gradient-to-br from-emerald-50 to-green-100' },
-    { value: 'blue-100', name: 'Sky', from: 'from-blue-400', to: 'to-cyan-600', preview: 'bg-gradient-to-br from-blue-50 to-cyan-100' },
-    { value: 'purple-100', name: 'Purple', from: 'from-purple-400', to: 'to-indigo-600', preview: 'bg-gradient-to-br from-purple-50 to-indigo-100' },
-    { value: 'orange-100', name: 'Orange', from: 'from-orange-400', to: 'to-amber-600', preview: 'bg-gradient-to-br from-orange-50 to-amber-100' },
-    { value: 'red-100', name: 'Rose', from: 'from-red-400', to: 'to-rose-600', preview: 'bg-gradient-to-br from-red-50 to-rose-100' },
-    { value: 'pink-100', name: 'Pink', from: 'from-pink-400', to: 'to-fuchsia-600', preview: 'bg-gradient-to-br from-pink-50 to-fuchsia-100' },
-    { value: 'yellow-100', name: 'Amber', from: 'from-yellow-400', to: 'to-amber-500', preview: 'bg-gradient-to-br from-yellow-50 to-amber-100' },
-    { value: 'teal-100', name: 'Teal', from: 'from-teal-400', to: 'to-cyan-600', preview: 'bg-gradient-to-br from-teal-50 to-cyan-100' },
-    { value: 'indigo-100', name: 'Indigo', from: 'from-indigo-400', to: 'to-blue-600', preview: 'bg-gradient-to-br from-indigo-50 to-blue-100' },
-    { value: 'cyan-100', name: 'Cyan', from: 'from-cyan-400', to: 'to-teal-500', preview: 'bg-gradient-to-br from-cyan-50 to-teal-100' },
-  ];
 
   const colorLabels = {
     income: 'Total Income',
@@ -419,51 +401,43 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* Colors Settings - Modern Color Picker */}
+        {/* Dashboard card colors */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>{t('dashboardColors')}</CardTitle>
             <p className="text-sm text-gray-600 dark:text-gray-400">Choose colors for each card in Monthly Report</p>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-8">
-              {Object.entries(settings.colors).map(([key, value]) => (
-                <div key={key} className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-base font-semibold">{colorLabels[key as keyof typeof colorLabels]}</Label>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 capitalize">{colorPalette.find(c => c.value === value)?.name || value}</span>
+          <CardContent className="space-y-5">
+            {(Object.keys(colorLabels) as (keyof typeof colorLabels)[]).map(key => {
+              const selected = getCardColor(settings.colors?.[key], defaultCardColors[key]);
+              return (
+                <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className={`${selected.classes} border rounded-lg px-3 py-2 sm:w-48 shrink-0`}>
+                    <div className="text-sm font-medium">{colorLabels[key]}</div>
+                    <div className="text-xs opacity-75">{selected.name}</div>
                   </div>
-                  <div className="grid grid-cols-5 md:grid-cols-10 gap-3">
-                    {colorPalette.map(color => (
+                  <div className="flex flex-wrap gap-2">
+                    {cardColors.map(color => (
                       <button
                         key={color.value}
-                        onClick={() => {
-                          updateSettings({
-                            ...settings,
-                            colors: { ...settings.colors, [key]: color.value }
-                          });
-                        }}
-                        className={`group relative aspect-square rounded-xl transition-all duration-300 ${color.preview} ${
-                          value === color.value 
-                            ? 'ring-4 ring-gray-900 dark:ring-white ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-900 scale-110 shadow-xl' 
-                            : 'hover:scale-105 hover:shadow-lg'
-                        }`}
+                        type="button"
                         title={color.name}
+                        aria-label={`${colorLabels[key]}: ${color.name}`}
+                        onClick={() => updateSettings({
+                          ...settings,
+                          colors: { ...settings.colors, [key]: color.value }
+                        })}
+                        className={`${color.classes} h-8 w-8 rounded-full border flex items-center justify-center ${
+                          selected.value === color.value ? 'ring-2 ring-offset-2 ring-gray-900 dark:ring-white dark:ring-offset-gray-900' : ''
+                        }`}
                       >
-                        {value === color.value && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Check className="h-5 w-5 text-gray-900 dark:text-white drop-shadow-lg" />
-                          </div>
-                        )}
-                        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-xs font-medium whitespace-nowrap bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-2 py-1 rounded">
-                          {color.name}
-                        </div>
+                        {selected.value === color.value && <Check className="h-4 w-4" />}
                       </button>
                     ))}
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </CardContent>
         </Card>
 
