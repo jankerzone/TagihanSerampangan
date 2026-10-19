@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import React from "react";
 import { useUser } from "@clerk/clerk-react";
+import { useQuery } from "@tanstack/react-query";
 import {
   LogOut,
   Settings,
@@ -24,6 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { t } from "@/lib/utils";
+import { api } from "@/lib/api";
 
 interface UserNavProps {
   onLogout: () => void;
@@ -35,6 +37,12 @@ interface UserNavProps {
 export function UserNav({ onLogout, onExport, onImport, onCopyPreviousMonth }: UserNavProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { user } = useUser();
+  // Internal (D1) account the API resolves this login to, to tell accounts apart across devices
+  const { data: account, isError: accountError } = useQuery({
+    queryKey: ['authMe'],
+    queryFn: api.auth.me,
+    retry: 1,
+  });
 
   const displayName = user?.fullName || user?.primaryEmailAddress?.emailAddress || 'User';
   const userEmail = user?.primaryEmailAddress?.emailAddress;
@@ -62,6 +70,11 @@ export function UserNav({ onLogout, onExport, onImport, onCopyPreviousMonth }: U
                 {userEmail}
               </p>
             )}
+            <p className="text-xs leading-none text-muted-foreground">
+              {accountError
+                ? <span className="text-red-600">Account ID: server unreachable</span>
+                : `Account ID: ${account?.user?.id ?? '…'}`}
+            </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
