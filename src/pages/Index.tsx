@@ -42,6 +42,7 @@ import { UserNav } from "@/components/Header/UserNav";
 import { PeriodPicker } from "@/components/Header/PeriodPicker";
 import { SavingsContributionsSection } from "@/components/dashboard/SavingsContributionsSection";
 import { ShareRecapDialog } from "@/components/ShareRecapDialog";
+import { defaultCardColors, getCardColor } from "@/lib/colors";
 import { PieChart, Pie, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // Types
@@ -70,33 +71,6 @@ interface FinancialData {
   savingList: Saving[];
   budgetingList: BudgetItem[];
 }
-
-// Helper to derive specific shades for panel styling based on a base color (e.g., "green-100")
-const getDerivedColorClasses = (selectedColor: string) => {
-  const parts = selectedColor.split('-'); // e.g., ["green", "100"]
-  const colorName = parts[0];
-  const shade = parseInt(parts[1]);
-
-  // Logic to derive shades based on user's request:
-  // If base is COLOR-X00:
-  //   Background: COLOR-(X+1)00 (e.g., 100 -> 200, 200 -> 300)
-  //   Text: COLOR-800 (fixed dark text for light backgrounds)
-  //   Border: COLOR-(X+2)00 (e.g., 100 -> 300, 200 -> 400)
-
-  let bgColorShade = shade + 100;
-  let textColorShade = 800;
-  let borderColorShade = shade + 200;
-
-  // Ensure shades don't exceed 900
-  if (bgColorShade > 900) bgColorShade = 900;
-  if (borderColorShade > 900) borderColorShade = 900;
-
-  return {
-    bgColor: `bg-${colorName}-${bgColorShade}`,
-    textColor: `text-${colorName}-${textColorShade}`,
-    borderColor: `border-${colorName}-${borderColorShade}`
-  };
-};
 
 // Memoized Category Badge Component removed to fix lag - replaced with Dialog approach
 
@@ -717,17 +691,11 @@ const Index = () => {
   }, [data?.budgetingList, sortConfig]);
 
   // Derived color classes for each panel
-  const colors = globalSettings?.colors || {
-    income: "green-100",
-    budgeted_expenses: "orange-100",
-    spending: "red-100",
-    savings: "blue-100"
-  };
-
-  const incomeColors = getDerivedColorClasses(colors.income || "green-100");
-  const budgetedColors = getDerivedColorClasses(colors.budgeted_expenses || "orange-100");
-  const spendingColors = getDerivedColorClasses(colors.spending || "red-100");
-  const savingsColors = getDerivedColorClasses(colors.savings || "blue-100");
+  const colors = globalSettings?.colors || defaultCardColors;
+  const incomeColors = getCardColor(colors.income, defaultCardColors.income);
+  const budgetedColors = getCardColor(colors.budgeted_expenses, defaultCardColors.budgeted_expenses);
+  const spendingColors = getCardColor(colors.spending, defaultCardColors.spending);
+  const savingsColors = getCardColor(colors.savings, defaultCardColors.savings);
 
   if (isSettingsLoading || isDataLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
@@ -796,34 +764,34 @@ const Index = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-              <Card className={`${incomeColors.bgColor} ${incomeColors.borderColor} border`}>
+              <Card className={`${incomeColors.classes} border`}>
                 <CardContent className="p-4">
-                  <div className={`text-sm font-medium ${incomeColors.textColor}`}>{t('totalIncome')}</div>
-                  <div className={`text-xl font-bold ${incomeColors.textColor}`}>{formatCurrency(totalIncome)}</div>
+                  <div className="text-sm font-medium">{t('totalIncome')}</div>
+                  <div className="text-xl font-bold">{formatCurrency(totalIncome)}</div>
                 </CardContent>
               </Card>
 
-              <Card className={`${savingsColors.bgColor} ${savingsColors.borderColor} border`}>
+              <Card className={`${savingsColors.classes} border`}>
                 <CardContent className="p-4">
-                  <div className={`text-sm font-medium ${savingsColors.textColor}`}>Planned Savings</div>
-                  <div className={`text-xl font-bold ${savingsColors.textColor}`}>{formatCurrency(totalPlannedSavings)}</div>
-                  <div className={`text-xs mt-1 ${savingsColors.textColor} opacity-75`}>{totalIncome > 0 ? `${Math.round((totalPlannedSavings / totalIncome) * 100)}% of income` : ''}</div>
+                  <div className="text-sm font-medium">Planned Savings</div>
+                  <div className="text-xl font-bold">{formatCurrency(totalPlannedSavings)}</div>
+                  <div className="text-xs mt-1 opacity-75">{totalIncome > 0 ? `${Math.round((totalPlannedSavings / totalIncome) * 100)}% of income` : ''}</div>
                 </CardContent>
               </Card>
 
-              <Card className={`${budgetedColors.bgColor} ${budgetedColors.borderColor} border`}>
+              <Card className={`${budgetedColors.classes} border`}>
                 <CardContent className="p-4">
-                  <div className={`text-sm font-medium ${budgetedColors.textColor}`}>Available to Spend</div>
-                  <div className={`text-xl font-bold ${budgetedColors.textColor}`}>{formatCurrency(availableToSpend)}</div>
-                  <div className={`text-xs mt-1 ${budgetedColors.textColor} opacity-75`}>{totalIncome > 0 ? `${Math.round((availableToSpend / totalIncome) * 100)}% of income` : ''}</div>
+                  <div className="text-sm font-medium">Available to Spend</div>
+                  <div className="text-xl font-bold">{formatCurrency(availableToSpend)}</div>
+                  <div className="text-xs mt-1 opacity-75">{totalIncome > 0 ? `${Math.round((availableToSpend / totalIncome) * 100)}% of income` : ''}</div>
                 </CardContent>
               </Card>
 
-              <Card className={`${spendingColors.bgColor} ${spendingColors.borderColor} border`}>
+              <Card className={`${spendingColors.classes} border`}>
                 <CardContent className="p-4">
-                  <div className={`text-sm font-medium ${spendingColors.textColor}`}>{t('spending', { month: currentMonth })}</div>
-                  <div className={`text-xl font-bold ${spendingColors.textColor}`}>{formatCurrency(totalSpending)}</div>
-                  <div className={`text-xs mt-1 ${spendingColors.textColor} opacity-75`}>{totalBudgetedExpenses > 0 ? `${Math.round((totalSpending / totalBudgetedExpenses) * 100)}% used` : ''}</div>
+                  <div className="text-sm font-medium">{t('spending', { month: currentMonth })}</div>
+                  <div className="text-xl font-bold">{formatCurrency(totalSpending)}</div>
+                  <div className="text-xs mt-1 opacity-75">{totalBudgetedExpenses > 0 ? `${Math.round((totalSpending / totalBudgetedExpenses) * 100)}% used` : ''}</div>
                 </CardContent>
               </Card>
 
